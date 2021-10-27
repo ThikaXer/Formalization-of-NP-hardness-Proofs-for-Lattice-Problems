@@ -11,24 +11,24 @@ imports Main
 begin
 
 
-type_synonym 'n lattice = "(int ^ ('n::finite)) set "
+type_synonym 'n lattice = "(real ^ ('n::finite)) set "
 
 
 definition vec_map :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a ^ 'n \<Rightarrow> 'b ^ 'n" where
   "vec_map f v = (\<chi> i. f (v$i))"
 
 
-definition real_of_lattice :: "int ^ 'n \<Rightarrow> real ^ ('n::finite)"  where
-  "real_of_lattice v = vec_map real_of_int v"
+definition real_of_int_vec :: "int ^ 'n \<Rightarrow> real ^ ('n::finite)"  where
+  "real_of_int_vec v = vec_map real_of_int v"
 
-definition real_to_lattice :: "real ^ 'n \<Rightarrow> int ^ ('n::finite)"  where
-  "real_to_lattice v = vec_map floor v"
+definition real_to_int_vec :: "real ^ 'n \<Rightarrow> int ^ ('n::finite)"  where
+  "real_to_int_vec v = vec_map floor v"
 
 
 definition lin_combo :: "'a list \<Rightarrow> ('a, 'b) vec list \<Rightarrow> ('a::{plus, times, zero}, 'b::finite) vec" where
   "lin_combo zs vs = foldr (+) (map2 (*s) zs vs) (vec 0)"
 
-definition gen_lattice :: "(int, 'a) vec list \<Rightarrow> (int, 'a::finite) vec set" where
+definition gen_lattice :: "(real, 'a) vec list \<Rightarrow> (real, 'a::finite) vec set" where
   "gen_lattice vs = {v. \<exists>zs::int list. v = lin_combo zs vs}"
 
 
@@ -61,24 +61,24 @@ by (metis bij_betw_imp_inj_on comp_apply eq_id_iff the_inv_f_f)
 text \<open>The CVP and SVP in $l_\infty$\<close>
 
 text \<open>The closest vector problem.\<close>
-definition is_closest_vec :: "'n lattice \<Rightarrow> real ^ 'n \<Rightarrow> int ^ 'n \<Rightarrow> bool" where
-  "is_closest_vec L b v \<equiv> (\<forall>x\<in>L. infnorm (real_of_lattice x - b) \<ge> 
-        infnorm (real_of_lattice v - b) \<and> v\<in>L)"
+definition is_closest_vec :: "'n lattice \<Rightarrow> real ^ 'n \<Rightarrow> real ^ 'n \<Rightarrow> bool" where
+  "is_closest_vec L b v \<equiv> (\<forall>x\<in>L. infnorm  (x - b) \<ge> 
+        infnorm (v - b) \<and> v\<in>L)"
 
 text \<open>The decision problem associated with solving CVP exactly.\<close>
-definition gap_cvp :: "((int, 'n) vec set \<times> (real, 'n) vec \<times> real) set" where
-  "gap_cvp \<equiv> {(L, b, r). (\<exists>v\<in>L. infnorm (real_of_lattice v - b) \<le> r)}"
+definition gap_cvp :: "('n lattice \<times> (real, 'n) vec \<times> real) set" where
+  "gap_cvp \<equiv> {(L, b, r). (\<exists>v\<in>L. infnorm (v - b) \<le> r)}"
 
 
 
 text \<open>The shortest vector problem.\<close>
-definition is_shortest_vec :: "'n lattice  \<Rightarrow> int ^ 'n \<Rightarrow> bool" where
-  "is_shortest_vec L v \<equiv> (\<forall>x\<in>L. infnorm (real_of_lattice x) \<ge> infnorm (real_of_lattice v) \<and> v\<in>L) "
+definition is_shortest_vec :: "'n lattice  \<Rightarrow> real ^ 'n \<Rightarrow> bool" where
+  "is_shortest_vec L v \<equiv> (\<forall>x\<in>L. infnorm (x) \<ge> infnorm (v) \<and> v\<in>L) "
 
 
 text \<open>The decision problem associated with solving SVP exactly.\<close>
-definition 
-  "gap_svp \<equiv> {(L, r). (\<exists>v\<in>L. infnorm (real_of_lattice v) \<le> r \<and> v\<noteq>0)}"
+definition gap_svp :: "('n lattice \<times> real) set" where
+  "gap_svp \<equiv> {(L, r). (\<exists>v\<in>L. infnorm (v) \<le> r \<and> v\<noteq>0)}"
 
 
 text \<open>Subset Sum Problem\<close>
@@ -102,8 +102,9 @@ definition gen_t :: "'a::one \<Rightarrow> ('a, 'n) vec" where
 
 
 definition reduce_cvp_subset_sum :: 
-  "((int ^'n) * int) \<Rightarrow> (((int ^'n) set) * (real ^'n) * real)" where
-  "reduce_cvp_subset_sum input = (gen_lattice (gen_basis (fst input)), gen_t (snd input), 1)"
+  "((int ^'n) * int) \<Rightarrow> (('n lattice) * (real ^'n) * real)" where
+  "reduce_cvp_subset_sum input = 
+    (gen_lattice (gen_basis (real_of_int_vec (fst input))), gen_t (snd input), 1)"
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
 lemma "is_reduction reduce_cvp_subset_sum subset_sum gap_cvp"
