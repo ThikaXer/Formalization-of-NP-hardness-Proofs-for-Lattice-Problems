@@ -101,6 +101,9 @@ text \<open>Lemmas for Proof\<close>
 lemma vec_lambda_eq: "(\<forall>i. a i = b i) \<longrightarrow> (\<chi> i. a i) = (\<chi> i. b i)"
 by auto
 
+lemma eq_fun_applic: assumes "x = y" shows "f x = f y"
+using assms by auto
+
 
 lemma sum_if_zero: 
   "(\<Sum>(j::'n len)\<in>UNIV. (if j = i then a j else 0)) = a i"
@@ -110,7 +113,18 @@ proof -
   using sum.remove[of "UNIV::'n len set" i "(\<lambda>x. if x = i then a x else 0)"] by auto
   then show ?thesis by auto
 qed
-  
+
+lemma Basis_vec_nth: 
+  "{x \<bullet> i | i. i\<in>Basis } = {x $ i |i. i\<in>UNIV}"
+apply auto 
+  subgoal by (metis axis_index cart_eq_inner_axis)
+  subgoal using cart_eq_inner_axis by force
+done
+
+
+lemma Max_real_of_int:
+  "Max (real_of_int ` A) = real_of_int (Max A)"
+ sorry
 
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
@@ -128,7 +142,7 @@ proof (safe, goal_cases)
   have "r = 1" using r_def reduce_cvp_subset_sum_def by auto
   (*have "(L,b,r) = reduce_cvp_subset_sum (as, s)" using L_def b_def r_def by auto*)
   define B where "B = gen_basis as"
-  have "B *v (real_of_int_vec x) - b = 
+  have init_eq_goal: "B *v (real_of_int_vec x) - b = 
     (\<chi> i. if i = 0 then scalar_product x as - s else 2 * x$(i-1) - 1)"
     (is "?init_vec = ?goal_vec")
   proof -
@@ -167,22 +181,47 @@ proof (safe, goal_cases)
         matrix_vector_mult_def real_of_int_vec_def vec_map_def 
       by auto
   qed
-
   then have "infnorm (B *v (real_of_int_vec x) - b) = 
-    Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV })"
+    Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
   proof -
-    have "infnorm (?goal_vec) = Max {\<bar>?goal_vec $(i-1)\<bar> | i. i\<in>UNIV}" 
-      apply (subst infnorm_Max) 
-
-find_theorems Basis
-
-    then have "\<dots> = Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV})"
-      sorry
-    then show ?thesis sorry
+    have "infnorm ?init_vec = infnorm ?goal_vec" using init_eq_goal by auto
+    also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV}" 
+    proof (subst infnorm_Max)
+      have "\<And>v. range (($) (v::(real, 'n mod_ring) vec)) = (\<bullet>) v ` Basis"
+        by (metis (no_types) Basis_vec_nth Setcompr_eq_image)
+      then show "(MAX v\<in>Basis. \<bar>?goal_vec \<bullet> v\<bar>) = Max {\<bar>?goal_vec $ m\<bar> | m. m \<in> UNIV}"
+        by (metis Setcompr_eq_image image_image)
+    qed
+    also have "\<dots> = Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+    proof - 
+      have "{\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
+        {real_of_int \<bar>scalar_product x as - s\<bar>} \<union> {real_of_int \<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}"
+        by auto
+      also have "\<dots> = (real_of_int ` {\<bar>scalar_product x as - s\<bar>}) \<union> 
+        (real_of_int ` {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+      proof -
+        have "{real_of_int \<bar>scalar_product x as - s\<bar>} = 
+          real_of_int ` {\<bar>scalar_product x as - s\<bar>}" by auto
+        moreover have "{real_of_int \<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}} = 
+          real_of_int ` {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}" by blast
+        ultimately show ?thesis by auto
+      qed
+      finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
+        real_of_int `({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+        by auto
+      have "Max {\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
+        Max (real_of_int ` ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}))" 
+      by (subst eq_fun_applic[OF eq, of Max], simp)
+      also have "\<dots> = Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+        using Max_real_of_int[of "{\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}"] 
+        by auto
+      finally show ?thesis by auto
+    qed
+    finally show ?thesis by auto
   qed
-  also have "\<dots> = Max ({0} \<union>  {y. \<exists>i\<in>UNIV. y = \<bar>2*x$(i-1)-1\<bar> })" 
+  also have "\<dots> = Max ({0} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})" 
     using x_lin_combo by auto
-  also have "\<dots> \<le> Max ({0} \<union>  {1})"
+  also have "\<dots> \<le> Max ({0} \<union> {1})"
   proof -
     have "\<bar>2*x$(i-1)-1\<bar> = 1" for i::"'n len" using x_binary
       by (smt (z3) insert_iff singletonD)
