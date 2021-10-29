@@ -122,9 +122,12 @@ apply auto
 done
 
 
+
 lemma Max_real_of_int:
-  "Max (real_of_int ` A) = real_of_int (Max A)"
- sorry
+  assumes "finite A" "A\<noteq>{}"
+  shows "Max (real_of_int ` A) = real_of_int (Max A)"
+using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
+
 
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
@@ -229,8 +232,10 @@ proof (safe, goal_cases)
   qed
   also have "\<dots> \<le> r" using \<open>r=1\<close> by auto
   finally have "infnorm (?init_vec) \<le> r" by blast
+  moreover have "B *v (real_of_int_vec x)\<in>L" 
+    unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
+  ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
   have L_lattice: "is_lattice L" sorry
-  then have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" sorry
   show ?case unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
 next
   case (2 as s)
