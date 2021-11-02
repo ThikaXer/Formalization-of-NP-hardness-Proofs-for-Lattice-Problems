@@ -203,14 +203,15 @@ by (smt (verit, best) Basis_real_def Collect_cong Setcompr_eq_image UNIV_I
 
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
-lemma "is_reduction reduce_cvp_subset_sum subset_sum gap_cvp"
-unfolding is_reduction_def
-proof (safe, goal_cases)
-  case (1 as s)
-  then obtain x where 
+
+lemma well_defined_reduction: 
+  assumes "(as, s) \<in> subset_sum"
+  shows "reduce_cvp_subset_sum (as, s) \<in> gap_cvp"
+proof -
+  obtain x where 
     x_binary: "\<forall>i. x $ i \<in> {0, 1}" and 
     x_lin_combo: "scalar_product x as = s" 
-    unfolding subset_sum_def by blast
+    using assms unfolding subset_sum_def by blast
   define L where L_def: "L = fst (reduce_cvp_subset_sum (as, s))"
   define b where b_def: "b = fst (snd (reduce_cvp_subset_sum (as, s)))"
   define r where r_def: "r = snd (snd (reduce_cvp_subset_sum (as, s)))"
@@ -307,34 +308,51 @@ proof (safe, goal_cases)
     unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
   ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
   have L_lattice: "is_lattice L" sorry
-  show ?case unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
+  show ?thesis unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
+qed
 
-
-next
-  case (2 as s)
+lemma NP_hardness_reduction:
+  assumes "reduce_cvp_subset_sum (as, s) \<in> gap_cvp"
+  shows "(as, s) \<in> subset_sum"
+proof -
   define B where "B = gen_basis as"
   define L where "L = gen_lattice B"
   define b where "b = gen_t s"
-  have "\<exists>v\<in>L. infnorm (v - b) \<le> 1" 
-    using 2 unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def  b_def by auto
-  then obtain v where "v\<in>L" "infnorm (v - b) \<le> 1" by blast
-  then obtain zs::"int ^('n len)" where "v = B *v (real_of_int_vec zs)" sorry 
+  have ex_v: "\<exists>v\<in>L. infnorm (v - b) \<le> 1" and is_lattice: "is_lattice L"
+    using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
+  then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
+  then obtain zs::"int ^('n len)" where "v = B *v (real_of_int_vec zs)" 
+    using is_lattice v_in_L sorry 
 
-  have "infnorm (v-b) = Max ({\<bar>scalar_product zs as - s\<bar>} \<union> {\<bar>2*zs$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
+  have "infnorm (v-b) = Max ({\<bar>scalar_product zs as - s\<bar>} \<union> 
+    {\<bar>2*zs$of_n1(i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
   sorry
 
-  then have "Max ({\<bar>scalar_product zs as - s\<bar>} \<union> {\<bar>2*zs$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })\<le>1"
+  then have Max_le_1: "Max ({\<bar>scalar_product zs as - s\<bar>} \<union> {\<bar>2*zs$of_n1(i-1)-1\<bar> | i. i\<in>UNIV-{0} })\<le>1"
   sorry
 
-  then have "\<bar>scalar_product zs as - s\<bar>\<le>1" sorry
-  have "\<bar>2*zs$(i-1)-1\<bar>\<le>1" if "i\<in>UNIV-{0}" for i sorry
-
-
-
-  have "\<forall>i. zs $ i \<in> {0, 1}" sorry 
-  moreover have "scalar_product xs as = s" sorry
-  ultimately show ?case unfolding subset_sum_def gap_cvp_def
+  have "\<bar>scalar_product zs as - s\<bar>\<le>1" using Max_le_1 by auto
+  have "\<bar>2*zs$of_n1(i-1)-1\<bar>\<le>1" if "i\<in>UNIV-{0}" for i using Max_le_1 that by auto
+  then have "zs$of_n1(i-1) = 0 \<or> zs$of_n1(i-1) = 1" if "i\<in>UNIV-{0}" for i
+    using that by force
+  then have "zs$i = 0 \<or> zs$i = 1" for i sorry
+  then have "\<forall>i. zs $ i \<in> {0, 1}" by simp 
+  moreover have "scalar_product zs as = s" sorry
+  ultimately show ?thesis unfolding subset_sum_def gap_cvp_def
      sorry
+qed
+
+
+
+
+lemma "is_reduction reduce_cvp_subset_sum subset_sum gap_cvp"
+unfolding is_reduction_def
+proof (safe, goal_cases)
+  case (1 as s)
+  then show ?case using well_defined_reduction by auto
+next
+  case (2 as s)
+  then show ?case using NP_hardness_reduction by auto
 qed
 
 
