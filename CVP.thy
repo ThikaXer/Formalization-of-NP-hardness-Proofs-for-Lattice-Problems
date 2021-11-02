@@ -40,7 +40,7 @@ definition lin_combo :: "'a list \<Rightarrow> ('a, 'b) vec list \<Rightarrow> (
 definition gen_lattice_list :: "(real, 'n) vec list \<Rightarrow> (real, 'n::finite) vec set" where
   "gen_lattice_list vs = {v. \<exists>zs::int list. v = lin_combo zs vs}"
 
-definition gen_lattice :: "(real^'a) ^'a \<Rightarrow> (real, 'a::finite) vec set" where
+definition gen_lattice :: "(real^('a::finite)) ^('b::finite) \<Rightarrow> (real, 'b) vec set" where
   "gen_lattice vs = {v. \<exists>z::int ^'a. v = vs *v (real_of_int_vec z)}"
 
 lemma is_lattice_gen_lattice:
@@ -56,28 +56,78 @@ assumes n_def: "n = CARD ('n::{finite,nontriv})"
 begin
 
 text \<open>Problem: Since we don't have dependent types in Isabelle, we need to work over a 
-  fixed dimension. Here, the CVP of dimension (n+1) reduces to subset sum of dimension n.
-  That is:  \<open>dim (CVP) \<ge> 2\<close>.\<close>
+  fixed dimension. Here, the CVP of dimension (n+1) reduces to subset sum with n elements in 
+  the set and one sum.\<close>
+
+definition to_n1:: "'n len \<Rightarrow> 'n1 len" where
+  "to_n1  = of_int_mod_ring \<circ> to_int_mod_ring "
+
+definition of_n1:: "'n1 len \<Rightarrow> 'n len" where
+  "of_n1 = of_int_mod_ring \<circ> to_int_mod_ring"
+
+lemma to_n1_of_n1: 
+  assumes "to_int_mod_ring x \<in> {0..<n}" 
+  shows "to_n1 (of_n1 x) = x" 
+proof -
+  have *: "0 \<le> to_int_mod_ring x" and **: "to_int_mod_ring x < int CARD('n)" 
+    using assms n_def by auto
+  show ?thesis unfolding to_n1_def of_n1_def comp_def 
+    using to_int_mod_ring_of_int_mod_ring[OF * **]
+    of_int_mod_ring_to_int_mod_ring by simp
+qed
+
+lemma of_n1_to_n1: 
+  shows "of_n1 (to_n1 x) = x" 
+proof -
+  have *: "0 \<le> to_int_mod_ring x" and **: "to_int_mod_ring x < int CARD('n1)" 
+    by (metis Rep_mod_ring atLeastLessThan_iff to_int_mod_ring.rep_eq)
+      (smt (verit) Rep_mod_ring atLeastLessThan_iff int_ops(2) n1_def n_def of_nat_add 
+      to_int_mod_ring.rep_eq)
+  show ?thesis unfolding to_n1_def of_n1_def comp_def 
+    using to_int_mod_ring_of_int_mod_ring[OF * **]
+    of_int_mod_ring_to_int_mod_ring by simp
+qed
+
+lemma of_n1_eq_to_n1: 
+  assumes "i \<noteq> 0"
+  shows "j = of_n1 (i - 1) \<longleftrightarrow> i = to_n1 j + 1"
+using assms  
+proof (safe, goal_cases)
+  case 1
+  have "to_int_mod_ring i \<in> {1..<n+1}" using assms
+  by (smt (verit, best) atLeastLessThan_iff n1_def rangeI range_to_int_mod_ring 
+    to_int_mod_ring_hom.hom_0)
+  then have *:"to_int_mod_ring (i-1) \<in> {0..<n}" 
+  by (smt (verit, ccfv_threshold) atLeastLessThan_iff int_ops(2) n1_def of_int_diff 
+    of_int_hom.hom_one of_int_mod_ring_to_int_mod_ring of_int_of_int_mod_ring 
+    of_nat_add to_int_mod_ring_of_int_mod_ring)
+  show ?case using to_n1_of_n1[OF *] by simp
+next
+  case 2
+  then show ?case using of_n1_to_n1 by simp
+qed
+
+
 
 text \<open>The CVP and SVP in $l_\infty$\<close>
 
 text \<open>The closest vector problem.\<close>
-definition is_closest_vec :: "('n len) lattice \<Rightarrow> real ^ ('n len) \<Rightarrow> real ^ ('n len) \<Rightarrow> bool" where
+definition is_closest_vec :: "('n1 len) lattice \<Rightarrow> real ^ ('n1 len) \<Rightarrow> real ^ ('n1 len) \<Rightarrow> bool" where
   "is_closest_vec L b v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. infnorm  (x - b) \<ge>  infnorm (v - b) \<and> v\<in>L)"
 
 text \<open>The decision problem associated with solving CVP exactly.\<close>
-definition gap_cvp :: "(('n len) lattice \<times> (real, ('n len)) vec \<times> real) set" where
+definition gap_cvp :: "(('n1 len) lattice \<times> (real, ('n1 len)) vec \<times> real) set" where
   "gap_cvp \<equiv> {(L, b, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm (v - b) \<le> r)}"
 
 
 
 text \<open>The shortest vector problem.\<close>
-definition is_shortest_vec :: "('n len) lattice  \<Rightarrow> real ^ ('n len) \<Rightarrow> bool" where
+definition is_shortest_vec :: "('n1 len) lattice  \<Rightarrow> real ^ ('n1 len) \<Rightarrow> bool" where
   "is_shortest_vec L v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. infnorm (x) \<ge> infnorm (v) \<and> v\<in>L) "
 
 
 text \<open>The decision problem associated with solving SVP exactly.\<close>
-definition gap_svp :: "(('n len) lattice \<times> real) set" where
+definition gap_svp :: "(('n1 len) lattice \<times> real) set" where
   "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm (v) \<le> r \<and> v\<noteq>0)}"
 
 
@@ -90,17 +140,25 @@ definition subset_sum :: "((int ^('n len)) * int) set" where
 
 text \<open>Reduction function for cvp to subset sum\<close>
 
-definition gen_basis :: "int ^('n len) \<Rightarrow> (real ^('n len)) ^('n len)" where
-  "gen_basis as = (\<chi> i j. if i = 0 then as$j else (if i = j + (1::'n len) then 2 else 0))"
+(*
+matrix :: 'a ^ colums ^ rows
+m = (\<chi> row column. _)
+m $ row $ column
+rows i\<in>{0..n+1}
+columns j\<in>{0..n}
+*)
+definition gen_basis :: "int ^('n len) \<Rightarrow> (real ^('n len)) ^('n1 len)" where
+  "gen_basis as = (\<chi> (i::'n1 len) (j::'n len). if i = 0 then as$j 
+    else (if i = (to_n1 j) + (1::'n1 len) then 2 else 0))"
 
 
-definition gen_t :: "int \<Rightarrow> (real, ('n len)) vec" where
+definition gen_t :: "int \<Rightarrow> (real, ('n1 len)) vec" where
   "gen_t s = (\<chi> i. if i = 0 then s else 1)"
 
 
 
 definition reduce_cvp_subset_sum :: 
-  "((int ^('n len)) * int) \<Rightarrow> ((('n len) lattice) * (real ^('n len)) * real)" where
+  "((int ^('n len)) * int) \<Rightarrow> ((('n1 len) lattice) * (real ^('n1 len)) * real)" where
   "reduce_cvp_subset_sum input = 
     (gen_lattice (gen_basis (fst input)), gen_t (snd input), 1)"
 
@@ -138,6 +196,11 @@ lemma Max_real_of_int:
 using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
 
 
+lemma infnorm_Max: 
+  "infnorm v = Max {\<bar>v $ i\<bar> | i. i \<in> UNIV}"
+by (smt (verit, best) Basis_real_def Collect_cong Setcompr_eq_image UNIV_I 
+  axis_in_Basis_iff axis_inverse cart_eq_inner_axis infnorm_Max singletonI)
+
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
 lemma "is_reduction reduce_cvp_subset_sum subset_sum gap_cvp"
@@ -155,38 +218,41 @@ proof (safe, goal_cases)
   (*have "(L,b,r) = reduce_cvp_subset_sum (as, s)" using L_def b_def r_def by auto*)
   define B where "B = gen_basis as"
   have init_eq_goal: "B *v (real_of_int_vec x) - b = 
-    (\<chi> i. if i = 0 then scalar_product x as - s else 2 * x$(i-1) - 1)"
+    (\<chi> (i::'n1 len). if i = 0 then scalar_product x as - s else 2 * x$of_n1 (i-1) - 1)"
     (is "?init_vec = ?goal_vec")
   proof -
-    have "(\<chi> i. \<Sum>j\<in>UNIV.
-            real_of_int (if i = 0 then as $ j else if i = j + 1 then 2 else 0) *
+    have "(\<chi> (i::'n1 len). \<Sum>j\<in>(UNIV::'n len set).
+            real_of_int (if i = 0 then as $ j else if i = to_n1 j + 1 then 2 else 0) *
             real_of_int (x $ j)) = 
-          (\<chi> i. if i = 0 then scalar_product x as else 2 * x$ (i-1))"
+          (\<chi> (i::'n1 len). if i = 0 then scalar_product x as else 2 * x$ of_n1 (i-1))"
     proof -
-      have "(\<Sum>j\<in>UNIV. real_of_int (x $ j) * real_of_int (if i = j + 1 then 2 else 0)) =
-        2 * real_of_int (x $ (i - 1))" for i 
+      have "(\<Sum>j\<in>(UNIV::'n len set). real_of_int (x $ j) * real_of_int (if i = to_n1 j + 1 
+        then 2 else 0)) =
+        2 * real_of_int (x $ of_n1 (i - 1))" if "i\<noteq>0" for i 
       proof -
-        have "(x $ j) * (if i = j + 1 then 2 else 0) = 
-              (if i = j + 1 then 2 * x$j else 0 * x$j)" for j
+        have "(x $ j) * (if i = to_n1 j + 1 then 2 else 0) = 
+              (if i = to_n1 j + 1 then 2 * x$j else 0 * x$j)" for j
           by auto
-        then have "(\<Sum>j\<in>UNIV. (x $ j) * (if i = j + 1 then 2 else 0)) =
-          (\<Sum>j\<in>UNIV. (if i = j + 1 then 2 * x$j else 0 * x$j))"
+        then have "(\<Sum>j\<in>UNIV. (x $ j) * (if i = to_n1 j + 1 then 2 else 0)) =
+          (\<Sum>j\<in>UNIV. (if i = to_n1 j + 1 then 2 * x$j else 0 * x$j))"
          by auto
-        also have "\<dots> = 2 * x$(i-1)" using sum_if_zero[of "i-1" "(\<lambda>y. 2*x$y)"]
-          by (smt (verit, best) eq_diff_eq sum.cong)
-        finally have "(\<Sum>j\<in>UNIV. (x $ j) * (if i = j + 1 then 2 else 0)) = 2 * x$(i-1)" by auto
-        then have "real_of_int (\<Sum>j\<in>UNIV. (x $ j) * (if i = j + 1 then 2 else 0)) = 
-          real_of_int (2 * x$(i-1))" by auto
+        also have "\<dots> = 2 * x$ of_n1 (i-1)" using sum_if_zero[of "of_n1 (i-1)" "(\<lambda>y. 2*x$y)"]
+          using eq_diff_eq sum.cong  of_n1_eq_to_n1[OF that]
+          by (smt (verit, best))
+        finally have "(\<Sum>j\<in>UNIV. (x $ j) * (if i = to_n1 j + 1 then 2 else 0)) = 
+          2 * x$ of_n1 (i-1)" by auto
+        then have "real_of_int (\<Sum>j\<in>UNIV. (x $ j) * (if i = to_n1 j + 1 then 2 else 0)) = 
+          real_of_int (2 * x$ of_n1 (i-1))" by auto
         then show ?thesis by auto
       qed
       then show ?thesis by (auto simp add: scalar_product_def mult.commute) 
     qed
     also have "\<dots> - (\<chi> i. if i = 0 then real_of_int (snd (as, s)) else 1) =
-      (\<chi> i. if i = 0 then scalar_product x as - s else 2* x $ (i-1) -1)"
+      (\<chi> i. if i = 0 then scalar_product x as - s else 2* x $ of_n1 (i-1) -1)"
     unfolding minus_vec_def by auto
     finally have "(\<chi> i. \<Sum>j\<in>UNIV.
-            real_of_int (if i = 0 then as $ j else if i = j + 1 then 2 else 0) *
-            real_of_int (x $ j))- (\<chi> i. if i = 0 then real_of_int (snd (as, s)) else 1) =
+      real_of_int (if i = 0 then as $ j else if i = to_n1 j + 1 then 2 else 0) *
+      real_of_int (x $ j))- (\<chi> i. if i = 0 then real_of_int (snd (as, s)) else 1) =
       ?goal_vec" by auto
     then show ?thesis 
       unfolding B_def b_def gen_basis_def reduce_cvp_subset_sum_def gen_t_def 
@@ -194,48 +260,44 @@ proof (safe, goal_cases)
       by auto
   qed
   then have "infnorm (B *v (real_of_int_vec x) - b) = 
-    Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
+    Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
   proof -
+    let ?sp = "\<bar>scalar_product x as - s\<bar>"
     have "infnorm ?init_vec = infnorm ?goal_vec" using init_eq_goal by auto
     also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV}" 
-    proof (subst infnorm_Max)
-      have "\<And>v. range (($) (v::(real, 'n mod_ring) vec)) = (\<bullet>) v ` Basis"
-        by (metis (no_types) Basis_vec_nth Setcompr_eq_image)
-      then show "(MAX v\<in>Basis. \<bar>?goal_vec \<bullet> v\<bar>) = Max {\<bar>?goal_vec $ m\<bar> | m. m \<in> UNIV}"
-        by (metis Setcompr_eq_image image_image)
-    qed
-    also have "\<dots> = Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+      using infnorm_Max[of ?goal_vec] by simp
+    also have "\<dots> = Max ({?sp} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
     proof - 
       have "{\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
-        {real_of_int \<bar>scalar_product x as - s\<bar>} \<union> {real_of_int \<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}"
+        {real_of_int ?sp} \<union> 
+        {real_of_int \<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}}"
         by auto
-      also have "\<dots> = (real_of_int ` {\<bar>scalar_product x as - s\<bar>}) \<union> 
-        (real_of_int ` {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+      also have "\<dots> = (real_of_int ` {?sp}) \<union> 
+        (real_of_int ` {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
       proof -
-        have "{real_of_int \<bar>scalar_product x as - s\<bar>} = 
-          real_of_int ` {\<bar>scalar_product x as - s\<bar>}" by auto
-        moreover have "{real_of_int \<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}} = 
-          real_of_int ` {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}" by blast
+        have "{real_of_int ?sp} = real_of_int ` {?sp}" by auto
+        moreover have "{real_of_int \<bar>2*x$of_n1(i-1)-1\<bar> | i. i\<in>UNIV-{0}} = 
+          real_of_int ` {\<bar>2*x$of_n1(i-1)-1\<bar> | i. i\<in>UNIV-{0}}" by blast
         ultimately show ?thesis by auto
       qed
       finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
-        real_of_int `({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+        real_of_int `({?sp} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
         by auto
       have "Max {\<bar>?goal_vec $i\<bar> | i. i\<in>UNIV} = 
-        Max (real_of_int ` ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}))" 
+        Max (real_of_int ` ({?sp} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}}))" 
       by (subst eq_fun_applic[OF eq, of Max], simp)
-      also have "\<dots> = Max ({\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
-        using Max_real_of_int[of "{\<bar>scalar_product x as - s\<bar>} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}}"] 
+      also have "\<dots> = Max ({?sp} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}})"
+        using Max_real_of_int[of "{?sp} \<union> {\<bar>2*x$of_n1 (i-1)-1\<bar> | i. i\<in>UNIV-{0}}"] 
         by auto
       finally show ?thesis by auto
     qed
     finally show ?thesis by auto
   qed
-  also have "\<dots> = Max ({0} \<union> {\<bar>2*x$(i-1)-1\<bar> | i. i\<in>UNIV-{0}})" 
+  also have "\<dots> = Max ({0} \<union> {\<bar>2*x$of_n1(i-1)-1\<bar> | i. i\<in>UNIV-{0}})" 
     using x_lin_combo by auto
   also have "\<dots> \<le> Max ({0} \<union> {1})"
   proof -
-    have "\<bar>2*x$(i-1)-1\<bar> = 1" for i::"'n len" using x_binary
+    have "\<bar>2*x$ of_n1 (i-1)-1\<bar> = 1" for i using x_binary
       by (smt (z3) insert_iff singletonD)
     then show ?thesis by auto
   qed
