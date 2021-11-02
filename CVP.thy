@@ -28,8 +28,10 @@ definition real_to_int_vec :: "real ^ 'n \<Rightarrow> int ^ ('n::finite)"  wher
 
 
 definition is_lattice :: "('n::finite) lattice \<Rightarrow> bool" where
-  "is_lattice L \<equiv> (\<exists>B::(real ^'n ^'n). \<forall>v\<in>L. \<exists>z::int^'n. 
-    B *v (real_of_int_vec z) = v)"
+  "is_lattice L \<equiv> (\<exists>B::(real ^'n ^'n). (\<forall>v\<in>L. \<exists>z::int^'n. 
+    B *v (real_of_int_vec z) = v) \<and> independent (columns B))"
+
+
 
 
 definition lin_combo :: "'a list \<Rightarrow> ('a, 'b) vec list \<Rightarrow> ('a::{plus, times, zero}, 'b::finite) vec" where
@@ -41,14 +43,21 @@ definition gen_lattice_list :: "(real, 'n) vec list \<Rightarrow> (real, 'n::fin
 definition gen_lattice :: "(real^'a) ^'a \<Rightarrow> (real, 'a::finite) vec set" where
   "gen_lattice vs = {v. \<exists>z::int ^'a. v = vs *v (real_of_int_vec z)}"
 
+lemma is_lattice_gen_lattice:
+  "is_lattice (gen_lattice vs)"
+unfolding is_lattice_def gen_lattice_def sorry
 
 text \<open>From now on work over fixed dimension!\<close>
 
 locale fixed_dim = 
 fixes n::nat
 assumes n_def: "n = CARD ('n::{finite,nontriv})"
+    and n1_def: "n+1 = CARD ('n1::{finite,nontriv})"
 begin
 
+text \<open>Problem: Since we don't have dependent types in Isabelle, we need to work over a 
+  fixed dimension. Here, the CVP of dimension (n+1) reduces to subset sum of dimension n.
+  That is:  \<open>dim (CVP) \<ge> 2\<close>.\<close>
 
 text \<open>The CVP and SVP in $l_\infty$\<close>
 
@@ -237,9 +246,33 @@ proof (safe, goal_cases)
   ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
   have L_lattice: "is_lattice L" sorry
   show ?case unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
+
+
 next
   case (2 as s)
-  then show ?case sorry
+  define B where "B = gen_basis as"
+  define L where "L = gen_lattice B"
+  define b where "b = gen_t s"
+  have "\<exists>v\<in>L. infnorm (v - b) \<le> 1" 
+    using 2 unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def  b_def by auto
+  then obtain v where "v\<in>L" "infnorm (v - b) \<le> 1" by blast
+  then obtain zs::"int ^('n len)" where "v = B *v (real_of_int_vec zs)" sorry 
+
+  have "infnorm (v-b) = Max ({\<bar>scalar_product zs as - s\<bar>} \<union> {\<bar>2*zs$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })"
+  sorry
+
+  then have "Max ({\<bar>scalar_product zs as - s\<bar>} \<union> {\<bar>2*zs$(i-1)-1\<bar> | i. i\<in>UNIV-{0} })\<le>1"
+  sorry
+
+  then have "\<bar>scalar_product zs as - s\<bar>\<le>1" sorry
+  have "\<bar>2*zs$(i-1)-1\<bar>\<le>1" if "i\<in>UNIV-{0}" for i sorry
+
+
+
+  have "\<forall>i. zs $ i \<in> {0, 1}" sorry 
+  moreover have "scalar_product xs as = s" sorry
+  ultimately show ?case unfolding subset_sum_def gap_cvp_def
+     sorry
 qed
 
 
