@@ -76,19 +76,12 @@ definition gap_svp :: "(lattice \<times> real) set" where
 text \<open>Subset Sum Problem\<close>
 
 definition subset_sum :: "((int vec) * int) set" where
-  "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. (\<forall>i. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s)}"
+  "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. (\<forall>i. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
 
 
 
 text \<open>Reduction function for cvp to subset sum\<close>
 
-(*
-matrix :: 'a ^ colums ^ rows
-m = (\<lambda> row column. _)
-m $ row $ column
-rows i\<in>{0..n+1}
-columns j\<in>{0..n}
-*)
 definition gen_basis :: "int vec \<Rightarrow> real mat" where
   "gen_basis as = mat (dim_vec as + 2) (dim_vec as) (\<lambda> (i, j). if i \<in> {0,1} then as$j 
     else (if i = j + 2 then 2 else 0))"
@@ -115,8 +108,8 @@ using assms by auto
 
 
 lemma sum_if_zero:
-  assumes "i<n"
-  shows "(\<Sum>j<n. (if j = i then a j else 0)) = a i"
+  assumes "i\<in>A"
+  shows "(\<Sum>j\<in>A. (if i = j then a j else 0)) = a i"
 sorry
 (*proof -
   have "(\<Sum>(x::'n len)\<in>UNIV. if x = i then a x else 0) =
@@ -144,7 +137,8 @@ lemma well_defined_reduction:
   assumes "(as, s) \<in> subset_sum"
   shows "reduce_cvp_subset_sum (as, s) \<in> gap_cvp"
 proof -
-  obtain x where 
+  obtain x where
+    x_dim: "dim_vec x = dim_vec as" and
     x_binary: "\<forall>i. x $ i \<in> {0, 1}" and 
     x_lin_combo: "x \<bullet> as = s" 
     using assms unfolding subset_sum_def by blast
@@ -154,16 +148,40 @@ proof -
   have "r = 1" by (simp add: r_def reduce_cvp_subset_sum_def Pair_inject prod.exhaust_sel)
   (*have "(L,b,r) = reduce_cvp_subset_sum (as, s)" using L_def b_def r_def by auto*)
   define B where "B = gen_basis as"
-  define n where "n = dim_vec as"
+  define n where n_def: "n = dim_vec as"
   have init_eq_goal: "B *\<^sub>v (real_of_int_vec x) - b = 
-    vec (n+2) (\<lambda> i. if i \<in> {0,1} then x \<bullet> as - s else 2 * x$(i-2) - 1)"
+    vec (n+2) (\<lambda> i. if i = 0 then x \<bullet> as - s -1 else (
+      if i = 1 then x \<bullet> as - s + 1 else 2 * x$(i-2) - 1))"
     (is "?init_vec = ?goal_vec")
   proof -
-    have "tosdo" sorry
+    have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> of_int_hom.vec_hom x = 
+      real_of_int (x \<bullet> as)"
+    unfolding n_def scalar_prod_def using x_dim by (auto simp add: mult.commute)
     then show ?thesis 
       unfolding B_def b_def gen_basis_def reduce_cvp_subset_sum_def gen_t_def 
-        real_of_int_vec_def  
-      apply auto sorry
+        real_of_int_vec_def
+    proof (intro eq_vecI, auto simp add: n_def, goal_cases)
+      case (1 i)
+      have "(\<Sum>ia = 0..<dim_vec (of_int_hom.vec_hom x).
+        vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
+        of_int_hom.vec_hom x $ ia) =
+        (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (of_int_hom.vec_hom x $ ia) else 0))"
+        by (intro sum.cong, auto simp add: n_def x_dim)
+      also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
+          real_of_int (if i = ib then 2 * (of_int_hom.vec_hom x $ (ib-2)) else 0))"
+      using sum.atLeast_Suc_lessThan_Suc_shift[symmetric] sorry
+
+  find_theorems name: sum name: shift
+
+      also have "\<dots> = 2 * (of_int_hom.vec_hom x $ (i-2))" 
+      proof - 
+        have *: "i\<in>{2..<n+2}" using 1 n_def by auto
+        show ?thesis 
+        using sum_if_zero[OF *, of "(\<lambda>k.2 * (of_int_hom.vec_hom x $ (k-2)))"] 
+          sledgehammer sorry
+      qed
+      then show ?case unfolding scalar_prod_def   sorry
+    qed
   qed
   then have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
     Max ({\<bar>x \<bullet> as - s - 1\<bar>} \<union> {\<bar>x \<bullet> as - s + 1\<bar>} \<union> {\<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
