@@ -7,6 +7,7 @@ imports Main
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
         (*Subset_Sum*)
         "Berlekamp_Zassenhaus.Finite_Field"
+        "Minkowskis_Theorem.Minkowskis_Theorem"
 
 begin
 
@@ -31,7 +32,7 @@ definition is_lattice :: "('n::finite) lattice \<Rightarrow> bool" where
   "is_lattice L \<equiv> (\<exists>B::(real ^'n ^'n). (\<forall>v\<in>L. \<exists>z::int^'n. 
     B *v (real_of_int_vec z) = v) \<and> independent (columns B))"
 
-
+find_theorems of_int_vec
 
 
 definition lin_combo :: "'a list \<Rightarrow> ('a, 'b) vec list \<Rightarrow> ('a::{plus, times, zero}, 'b::finite) vec" where
