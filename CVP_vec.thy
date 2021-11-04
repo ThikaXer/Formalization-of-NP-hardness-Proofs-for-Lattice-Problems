@@ -108,15 +108,14 @@ using assms by auto
 
 
 lemma sum_if_zero:
-  assumes "i\<in>A"
+  assumes "finite A" "i\<in>A"
   shows "(\<Sum>j\<in>A. (if i = j then a j else 0)) = a i"
-sorry
-(*proof -
-  have "(\<Sum>(x::'n len)\<in>UNIV. if x = i then a x else 0) =
-  (if i = i then a i else 0) + (\<Sum>x\<in>UNIV - {i}. if x = i then a x else 0)"
-  using sum.remove[of "UNIV::'n len set" i "(\<lambda>x. if x = i then a x else 0)"] by auto
-  then show ?thesis by auto
-qed*)
+proof -
+  have "(\<Sum>x\<in>A. if x = i then a x else 0) =
+  (if i = i then a i else 0) + (\<Sum>x\<in>A - {i}. if x = i then a x else 0)"
+  using sum.remove[OF assms, of "(\<lambda>x. if x = i then a x else 0)"] by auto
+  then show ?thesis by (simp add: assms(1))
+qed
 
 
 
@@ -125,10 +124,6 @@ lemma Max_real_of_int:
   shows "Max (real_of_int ` A) = real_of_int (Max A)"
 using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
 
-
-lemma infnorm_Max: 
-  "infnorm v = Max {\<bar>v $ i\<bar> | i. i<n}"
-sorry
 
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
@@ -150,37 +145,44 @@ proof -
   define B where "B = gen_basis as"
   define n where n_def: "n = dim_vec as"
   have init_eq_goal: "B *\<^sub>v (real_of_int_vec x) - b = 
-    vec (n+2) (\<lambda> i. if i = 0 then x \<bullet> as - s -1 else (
-      if i = 1 then x \<bullet> as - s + 1 else 2 * x$(i-2) - 1))"
+    vec (n+2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
+      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
   proof -
-    have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> of_int_hom.vec_hom x = 
-      real_of_int (x \<bullet> as)"
-    unfolding n_def scalar_prod_def using x_dim by (auto simp add: mult.commute)
+    have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> (real_of_int_vec x) = 
+       real_of_int (x \<bullet> as)"
+      unfolding n_def scalar_prod_def real_of_int_vec_def 
+      using x_dim by (auto simp add: mult.commute)
     then show ?thesis 
       unfolding B_def b_def gen_basis_def reduce_cvp_subset_sum_def gen_t_def 
         real_of_int_vec_def
     proof (intro eq_vecI, auto simp add: n_def, goal_cases)
       case (1 i)
-      have "(\<Sum>ia = 0..<dim_vec (of_int_hom.vec_hom x).
+      have "(\<Sum>ia = 0..<dim_vec (real_of_int_vec x).
         vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
-        of_int_hom.vec_hom x $ ia) =
-        (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (of_int_hom.vec_hom x $ ia) else 0))"
-        by (intro sum.cong, auto simp add: n_def x_dim)
+        (real_of_int_vec x) $ ia) =
+        (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (x $ ia) else 0))"
+        by (intro sum.cong, auto simp add: n_def x_dim real_of_int_vec_def)
       also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
-          real_of_int (if i = ib then 2 * (of_int_hom.vec_hom x $ (ib-2)) else 0))"
-      using sum.atLeast_Suc_lessThan_Suc_shift[symmetric] sorry
-
-  find_theorems name: sum name: shift
-
-      also have "\<dots> = 2 * (of_int_hom.vec_hom x $ (i-2))" 
+          real_of_int (if i = ib then 2 * (x $ (ib-2)) else 0))" 
       proof - 
-        have *: "i\<in>{2..<n+2}" using 1 n_def by auto
-        show ?thesis 
-        using sum_if_zero[OF *, of "(\<lambda>k.2 * (of_int_hom.vec_hom x $ (k-2)))"] 
-          sledgehammer sorry
+        have eq: "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0)) \<circ> (+) 2
+            = (\<lambda>ia. real_of_int (if i = ia + 2 then 2 * x $ ia else 0))"
+        by auto
+        then show ?thesis
+          by (subst sum.atLeastLessThan_shift_0[
+              of "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0))" 2 "n+2"])
+            (subst eq, use lessThan_atLeast0 in \<open>auto\<close>)
       qed
-      then show ?case unfolding scalar_prod_def   sorry
+      also have "\<dots> = 2 * real_of_int (x $ (i-2))" 
+      proof - 
+        have finite: "finite {2..<n+2}" by auto
+        have is_in: "i \<in> {2..<n+2}" using 1 n_def by auto
+        show ?thesis 
+        by (subst of_int_sum[symmetric]) 
+           (subst sum_if_zero[OF finite is_in, of "(\<lambda>k.2 * (x $ (k-2)))"], auto)
+      qed
+      finally show ?case unfolding scalar_prod_def real_of_int_vec_def by auto
     qed
   qed
   then have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
