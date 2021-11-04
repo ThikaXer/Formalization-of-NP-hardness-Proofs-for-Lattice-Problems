@@ -76,7 +76,8 @@ definition gap_svp :: "(lattice \<times> real) set" where
 text \<open>Subset Sum Problem\<close>
 
 definition subset_sum :: "((int vec) * int) set" where
-  "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. (\<forall>i. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
+  "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. 
+    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
 
 
 
@@ -129,6 +130,94 @@ lemma set_compr_elem:
   shows "{f i | i. i\<in>A} = {f a} \<union> {f i | i. i\<in>A-{a}}"
  sorry
 
+lemma Bx_s_rewrite: 
+  assumes x_dim: "dim_vec as = dim_vec x"
+  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s) = 
+    vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
+      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+    (is "?init_vec = ?goal_vec")
+proof -
+  define n::nat where n_def: "n = dim_vec as"
+  have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> (real_of_int_vec x) = 
+     real_of_int (x \<bullet> as)"
+    unfolding n_def scalar_prod_def real_of_int_vec_def 
+    using x_dim by (auto simp add: mult.commute)
+  then show ?thesis 
+    unfolding gen_basis_def reduce_cvp_subset_sum_def gen_t_def real_of_int_vec_def
+  proof (intro eq_vecI, auto simp add: n_def, goal_cases)
+    case (1 i)
+    have "(\<Sum>ia = 0..<dim_vec (real_of_int_vec x).
+      vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
+      (real_of_int_vec x) $ ia) =
+      (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (x $ ia) else 0))"
+      by (intro sum.cong, auto simp add: n_def x_dim real_of_int_vec_def)
+    also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
+        real_of_int (if i = ib then 2 * (x $ (ib-2)) else 0))" 
+    proof - 
+      have eq: "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0)) \<circ> (+) 2
+          = (\<lambda>ia. real_of_int (if i = ia + 2 then 2 * x $ ia else 0))"
+      by auto
+      then show ?thesis
+        by (subst sum.atLeastLessThan_shift_0[
+            of "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0))" 2 "n+2"])
+          (subst eq, use lessThan_atLeast0 in \<open>auto\<close>)
+    qed
+    also have "\<dots> = 2 * real_of_int (x $ (i-2))" 
+    proof - 
+      have finite: "finite {2..<n+2}" by auto
+      have is_in: "i \<in> {2..<n+2}" using 1 by (auto simp add: n_def)
+      show ?thesis 
+      by (subst of_int_sum[symmetric]) 
+         (subst sum_if_zero[OF finite is_in, of "(\<lambda>k.2 * (x $ (k-2)))"], auto)
+    qed
+    finally show ?case unfolding scalar_prod_def real_of_int_vec_def by auto
+  qed
+qed
+
+lemma infnorm_Bx_s:
+  assumes x_dim: "dim_vec as = dim_vec x"
+  shows "infnorm ((gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)) = 
+    Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 })"
+proof -
+  let ?init_vec = "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)"
+  let ?goal_vec = "vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
+      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  define n where n_def: "n = dim_vec as"
+  have "infnorm ?init_vec = infnorm ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
+  also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
+    unfolding infnorm_def n_def by auto
+  also have "\<dots> = Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
+                       {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+                       {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
+  proof -
+    have "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
+      {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" 
+    proof -
+      have "{\<bar>?goal_vec $i\<bar> | i. i\<in>{0..<n+2}} = 
+       {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. i\<in>{1..<n+2}}"   
+      by (subst set_compr_elem[of "{0..<n+2}" 0 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
+      also have "\<dots> = {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> 
+        {\<bar>?goal_vec $i\<bar> | i. i\<in>{2..<n+2}}"
+      by (subst set_compr_elem[of "{1..<n+2}" 1 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
+      finally show ?thesis by auto
+    qed
+    also have "\<dots> = {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" by auto
+    also have "{\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2} = 
+      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}"
+    proof -
+      have "\<bar>?goal_vec $i\<bar> = real_of_int \<bar>2*x$(i-2)-1\<bar>" if "1<i \<and> i<n+2" for i 
+      using that n_def by force
+      then show ?thesis using n_def by force
+    qed
+    finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
+      {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}" by blast
+    then show ?thesis by auto
+  qed
+  finally show ?thesis using n_def by blast
+qed
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
 
@@ -138,7 +227,7 @@ lemma well_defined_reduction:
 proof -
   obtain x where
     x_dim: "dim_vec x = dim_vec as" and
-    x_binary: "\<forall>i. x $ i \<in> {0, 1}" and 
+    x_binary: "\<forall>i<dim_vec x. x $ i \<in> {0, 1}" and 
     x_lin_combo: "x \<bullet> as = s" 
     using assms unfolding subset_sum_def by blast
   define L where L_def: "L = fst (reduce_cvp_subset_sum (as, s))"
@@ -152,85 +241,24 @@ proof -
     vec (n+2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
       if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
-  proof -
-    have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> (real_of_int_vec x) = 
-       real_of_int (x \<bullet> as)"
-      unfolding n_def scalar_prod_def real_of_int_vec_def 
-      using x_dim by (auto simp add: mult.commute)
-    then show ?thesis 
-      unfolding B_def b_def gen_basis_def reduce_cvp_subset_sum_def gen_t_def 
-        real_of_int_vec_def
-    proof (intro eq_vecI, auto simp add: n_def, goal_cases)
-      case (1 i)
-      have "(\<Sum>ia = 0..<dim_vec (real_of_int_vec x).
-        vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
-        (real_of_int_vec x) $ ia) =
-        (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (x $ ia) else 0))"
-        by (intro sum.cong, auto simp add: n_def x_dim real_of_int_vec_def)
-      also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
-          real_of_int (if i = ib then 2 * (x $ (ib-2)) else 0))" 
-      proof - 
-        have eq: "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0)) \<circ> (+) 2
-            = (\<lambda>ia. real_of_int (if i = ia + 2 then 2 * x $ ia else 0))"
-        by auto
-        then show ?thesis
-          by (subst sum.atLeastLessThan_shift_0[
-              of "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0))" 2 "n+2"])
-            (subst eq, use lessThan_atLeast0 in \<open>auto\<close>)
-      qed
-      also have "\<dots> = 2 * real_of_int (x $ (i-2))" 
-      proof - 
-        have finite: "finite {2..<n+2}" by auto
-        have is_in: "i \<in> {2..<n+2}" using 1 n_def by auto
-        show ?thesis 
-        by (subst of_int_sum[symmetric]) 
-           (subst sum_if_zero[OF finite is_in, of "(\<lambda>k.2 * (x $ (k-2)))"], auto)
-      qed
-      finally show ?case unfolding scalar_prod_def real_of_int_vec_def by auto
-    qed
-  qed
-  then have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
+  unfolding B_def b_def reduce_cvp_subset_sum_def
+  by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
+  have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
     Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
       {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
-  proof -
-    have "infnorm ?init_vec = infnorm ?goal_vec" using init_eq_goal by auto
-    also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
-      unfolding infnorm_def by auto
-    also have "\<dots> = Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
-                         {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-                         {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
-    proof -
-      have "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
-        {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" 
-      proof -
-        have "{\<bar>?goal_vec $i\<bar> | i. i\<in>{0..<n+2}} = 
-         {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. i\<in>{1..<n+2}}"   
-        by (subst set_compr_elem[of "{0..<n+2}" 0 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
-        also have "\<dots> = {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> 
-          {\<bar>?goal_vec $i\<bar> | i. i\<in>{2..<n+2}}"
-        by (subst set_compr_elem[of "{1..<n+2}" 1 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
-        finally show ?thesis by auto
-      qed
-      also have "\<dots> = {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-        {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" by auto
-      also have "{\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2} = 
-        {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}"
-      proof -
-        have "\<bar>?goal_vec $i\<bar> = real_of_int \<bar>2*x$(i-2)-1\<bar>" if "1<i \<and> i<n+2" for i 
-        using that by force
-        then show ?thesis by force
-      qed
-      finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
-        {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-        {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}" by blast
-      then show ?thesis by auto
-    qed
-    finally show ?thesis by blast
-  qed
+  unfolding B_def b_def reduce_cvp_subset_sum_def 
+  by (auto simp add: infnorm_Bx_s[OF x_dim[symmetric]] n_def)
   also have  "\<dots> \<le> r"
   proof -
-    have "\<bar>2*x$(i-2)-1\<bar> = 1" for i using x_binary
-      by (smt (z3) insert_iff singletonD)
+    have elem: "x$(i-2)\<in>{0,1}" if "1<i \<and> i<n+2" for i 
+      using that x_binary x_dim n_def
+      by (smt (verit) add_diff_cancel_right' diff_diff_left diff_less_mono2 
+      less_add_same_cancel2 less_imp_add_positive less_one linorder_neqE_nat 
+      nat_1_add_1 not_add_less2)
+    then have "\<bar>2*x$(i-2)-1\<bar> = 1" if "1<i \<and> i<n+2" for i 
+      using elem[OF that] by auto
+    then have "{real_of_int \<bar>2 * x $ (i - 2) - 1\<bar> |i. 1 < i \<and> i < n + 2} \<subseteq> {1}" 
+      by (safe, auto)
     then show ?thesis using x_lin_combo \<open>r=1\<close> by auto
   qed
   finally have "infnorm (?init_vec) \<le> r" by blast
@@ -252,28 +280,34 @@ proof -
   have ex_v: "\<exists>v\<in>L. infnorm (v - b) \<le> 1" and is_lattice: "is_lattice L"
     using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
   then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
-  then obtain zs::"int vec" where "v = B *\<^sub>v (real_of_int_vec zs)" 
+  then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
+    and zs_dim: "dim_vec zs = dim_vec as"
     using is_lattice v_in_L sorry 
 
-  have "infnorm (v-b) = Max ({\<bar>zs \<bullet> as - s - 1\<bar>} \<union> {\<bar>zs \<bullet> as - s + 1\<bar>} \<union> 
-    {\<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
-  sorry
+  have init_eq_goal: "v - b = 
+    vec (n+2) (\<lambda> i. if i = 0 then real_of_int (zs \<bullet> as - s - 1) else (
+      if i = 1 then real_of_int (zs \<bullet> as - s + 1) else real_of_int (2 * zs$(i-2) - 1)))"
+    (is "?init_vec = ?goal_vec")
+  unfolding v_def B_def b_def using Bx_s_rewrite[OF zs_dim[symmetric]] n_def by simp
+  have infnorm_ineq: "infnorm (v-b) = Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union> {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+  unfolding v_def B_def b_def using infnorm_Bx_s[OF zs_dim[symmetric]] n_def by simp
 
-  then have Max_le_1: "Max ({\<bar>zs \<bullet> as - s - 1\<bar>} \<union> {\<bar>zs \<bullet> as - s + 1\<bar>} \<union> 
-      {\<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
-  sorry
-
-
+  have Max_le_1: "Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
+  using ineq by (subst infnorm_ineq[symmetric])
   have "\<bar>2*zs$(i-2)-1\<bar>\<le>1" if "1<i \<and> i<n+2" for i using Max_le_1 that by auto
   then have "zs$(i-2) = 0 \<or> zs$(i-2) = 1" if "1<i \<and> i<n+2" for i
     using that by force
-  then have "zs$i = 0 \<or> zs$i = 1" for i sorry
-  then have "\<forall>i. zs $ i \<in> {0, 1}" by simp 
+  then have "zs$i = 0 \<or> zs$i = 1" if "i<n" for i using that
+    by (metis One_nat_def Suc_less_eq add_2_eq_Suc' add_diff_cancel_right' zero_less_Suc)
+  then have "\<forall>i<n. zs $ i \<in> {0, 1}" by simp 
 
   moreover have "zs \<bullet> as = s" using Max_le_1 by auto
 
-  ultimately show ?thesis unfolding subset_sum_def gap_cvp_def
-     sorry
+  ultimately have "(\<forall>i<dim_vec zs. zs $ i \<in> {0, 1}) \<and> zs \<bullet> as = s \<and> dim_vec zs = dim_vec as"
+     using zs_dim n_def by auto
+  then show ?thesis unfolding subset_sum_def gap_cvp_def by auto
 qed
 
 
