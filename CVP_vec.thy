@@ -37,9 +37,10 @@ definition is_lattice :: "lattice \<Rightarrow> bool" where
 definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
   "gen_lattice A = {v. \<exists>z::int vec. v = A *\<^sub>v (real_of_int_vec z)}"
 
+(*TODO*)
 lemma is_lattice_gen_lattice:
   "is_lattice (gen_lattice vs)"
-unfolding is_lattice_def gen_lattice_def sorry
+unfolding is_lattice_def gen_lattice_def oops
 
 text \<open>We do not need a fixed type anymore, but can just take the dimension in 
   the vector specification.\<close>
@@ -128,7 +129,7 @@ using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
 lemma set_compr_elem: 
   assumes "finite A" "a\<in>A"
   shows "{f i | i. i\<in>A} = {f a} \<union> {f i | i. i\<in>A-{a}}"
- sorry
+by (safe, use assms in \<open>auto\<close>)
 
 lemma Bx_s_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
