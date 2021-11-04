@@ -46,8 +46,8 @@ text \<open>We do not need a fixed type anymore, but can just take the dimension
 
 text \<open>We need to define the l-infinity norm on vectors.\<close>
 
-definition infnorm ::"'a vec \<Rightarrow> 'a::linorder" where
-  "infnorm v \<equiv> Max {v$i | i. i < dim_vec v}"
+definition infnorm ::"'a vec \<Rightarrow> 'a::{linorder, abs}" where
+  "infnorm v \<equiv> Max { \<bar>v$i\<bar> | i. i < dim_vec v}"
 
 
 text \<open>The CVP and SVP in $l_\infty$\<close>
@@ -124,6 +124,10 @@ lemma Max_real_of_int:
   shows "Max (real_of_int ` A) = real_of_int (Max A)"
 using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
 
+lemma set_compr_elem: 
+  assumes "finite A" "a\<in>A"
+  shows "{f i | i. i\<in>A} = {f a} \<union> {f i | i. i\<in>A-{a}}"
+ sorry
 
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
@@ -186,16 +190,42 @@ proof -
     qed
   qed
   then have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
-    Max ({\<bar>x \<bullet> as - s - 1\<bar>} \<union> {\<bar>x \<bullet> as - s + 1\<bar>} \<union> {\<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+    Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
   proof -
     have "infnorm ?init_vec = infnorm ?goal_vec" using init_eq_goal by auto
     also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
-      using infnorm_Max[of ?goal_vec] by simp
-    also have "\<dots> = Max ({\<bar>x \<bullet> as - s - 1\<bar>} \<union> 
-                         {\<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-                         {\<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
-    sorry
-    finally show ?thesis sorry
+      unfolding infnorm_def by auto
+    also have "\<dots> = Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
+                         {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+                         {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
+    proof -
+      have "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
+        {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" 
+      proof -
+        have "{\<bar>?goal_vec $i\<bar> | i. i\<in>{0..<n+2}} = 
+         {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. i\<in>{1..<n+2}}"   
+        by (subst set_compr_elem[of "{0..<n+2}" 0 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
+        also have "\<dots> = {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> 
+          {\<bar>?goal_vec $i\<bar> | i. i\<in>{2..<n+2}}"
+        by (subst set_compr_elem[of "{1..<n+2}" 1 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
+        finally show ?thesis by auto
+      qed
+      also have "\<dots> = {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+        {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" by auto
+      also have "{\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2} = 
+        {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}"
+      proof -
+        have "\<bar>?goal_vec $i\<bar> = real_of_int \<bar>2*x$(i-2)-1\<bar>" if "1<i \<and> i<n+2" for i 
+        using that by force
+        then show ?thesis by force
+      qed
+      finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
+        {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+        {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}" by blast
+      then show ?thesis by auto
+    qed
+    finally show ?thesis by blast
   qed
   also have  "\<dots> \<le> r"
   proof -
