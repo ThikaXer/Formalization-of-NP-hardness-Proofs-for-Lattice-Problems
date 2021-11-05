@@ -3,48 +3,11 @@ theory CVP_vec
 imports Main 
         "poly-reductions/Karp21/Reductions"
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
-        (*Subset_Sum*)
-        "Berlekamp_Zassenhaus.Finite_Field"
-        "Jordan_Normal_Form.Matrix"
-        "Jordan_Normal_Form.Matrix_Kernel"
-        "Jordan_Normal_Form.DL_Rank"
-        "Jordan_Normal_Form.Complexity_Carrier"
-        "Jordan_Normal_Form.Conjugate"
-        "Jordan_Normal_Form.Ring_Hom_Matrix"
-        "VectorSpace.LinearCombinations"
+        Lattice
+        Subset_Sum
 
 
 begin
-
-type_synonym lattice = "real vec set"
-
-
-definition real_of_int_vec :: "int vec \<Rightarrow> real vec"  where
-  "real_of_int_vec v = map_vec real_of_int v"
-
-definition real_to_int_vec :: "real vec \<Rightarrow> int vec"  where
-  "real_to_int_vec v = map_vec floor v"
-
-definition is_indep :: "real mat \<Rightarrow> bool" where
-  "is_indep A \<equiv> (\<forall>z::real vec. (A *\<^sub>v z = 0\<^sub>v (dim_row A) \<and> dim_col A = dim_vec z) 
-    \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
-
-(*L is integer span of B and vectors in B are linearly independent*)
-definition is_lattice :: "lattice \<Rightarrow> bool" where
-  "is_lattice L \<equiv> (\<exists>B::(real mat). 
-    L = {B *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_col B} 
-    \<and> is_indep B)"
-
-
-
-definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
-  "gen_lattice A = {A *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_col A}"
-
-
-lemma is_lattice_gen_lattice:
-  assumes "is_indep A"
-  shows "is_lattice (gen_lattice A)"
-unfolding is_lattice_def gen_lattice_def using assms by auto
 
 
 text \<open>We do not need a fixed type anymore, but can just take the dimension in 
@@ -56,7 +19,7 @@ definition infnorm ::"'a vec \<Rightarrow> 'a::{linorder, abs}" where
   "infnorm v \<equiv> Max { \<bar>v$i\<bar> | i. i < dim_vec v}"
 
 
-text \<open>The CVP and SVP in $l_\infty$\<close>
+text \<open>The CVP  in $l_\infty$\<close>
 
 text \<open>The closest vector problem.\<close>
 definition is_closest_vec :: "lattice \<Rightarrow> real vec \<Rightarrow> real vec \<Rightarrow> bool" where
@@ -66,24 +29,6 @@ definition is_closest_vec :: "lattice \<Rightarrow> real vec \<Rightarrow> real 
 text \<open>The decision problem associated with solving CVP exactly.\<close>
 definition gap_cvp :: "(lattice \<times> real vec \<times> real) set" where
   "gap_cvp \<equiv> {(L, b, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm (v - b) \<le> r)}"
-
-
-
-text \<open>The shortest vector problem.\<close>
-definition is_shortest_vec :: "lattice  \<Rightarrow> real vec \<Rightarrow> bool" where
-  "is_shortest_vec L v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. infnorm (x) \<ge> infnorm (v) \<and> v\<in>L) "
-
-
-text \<open>The decision problem associated with solving SVP exactly.\<close>
-definition gap_svp :: "(lattice \<times> real) set" where
-  "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm (v) \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
-
-
-text \<open>Subset Sum Problem\<close>
-
-definition subset_sum :: "((int vec) * int) set" where
-  "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. 
-    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
 
 
 
@@ -422,11 +367,6 @@ next
 qed
 
 
-
-
-text \<open>The Gap-SVP is NP-hard.\<close>
-lemma "is_reduction my_fun gap_svp gap_cvp"
-oops
 
 
 (*
