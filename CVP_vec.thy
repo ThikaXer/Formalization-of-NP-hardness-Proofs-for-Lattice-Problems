@@ -38,7 +38,7 @@ definition is_lattice :: "lattice \<Rightarrow> bool" where
 
 
 definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
-  "gen_lattice A = {A *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_row A}"
+  "gen_lattice A = {A *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_col A}"
 
 (*TODO*)
 lemma is_lattice_gen_lattice:
@@ -357,7 +357,7 @@ proof -
   finally have "infnorm (?init_vec) \<le> r" by blast
   moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
   proof -
-    have "dim_vec x = dim_row (gen_basis as)" sorry
+    have "dim_vec x = dim_col (gen_basis as)" unfolding gen_basis_def using x_dim by auto
     then show ?thesis
       unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
   qed
@@ -378,17 +378,8 @@ proof -
   have ex_v: "\<exists>v\<in>L. infnorm (v - b) \<le> 1" and is_lattice: "is_lattice L"
     using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
   then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
-  then have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
-  proof -
-    have "(L = range (\<lambda>z. B *\<^sub>v real_of_int_vec z)) \<and> is_indep B"
-      unfolding L_def B_def gen_lattice_def using is_indep_gen_basis by auto
-    then obtain zs::"int vec" where zs_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
-      and "dim_vec (real_of_int_vec zs) = dim_row B"
-using v_in_L by blast
-    moreover have "dim_vec zs = dim_col B" using zs_def 
-    then show ?thesis using v_in_L  sorry
-  qed
-
+  have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
+  using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_def by auto
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
     and zs_dim: "dim_vec zs = dim_vec as" by blast
   have init_eq_goal: "v - b = 
@@ -409,9 +400,7 @@ using v_in_L by blast
   then have "zs$i = 0 \<or> zs$i = 1" if "i<n" for i using that
     by (metis One_nat_def Suc_less_eq add_2_eq_Suc' add_diff_cancel_right' zero_less_Suc)
   then have "\<forall>i<n. zs $ i \<in> {0, 1}" by simp 
-
   moreover have "zs \<bullet> as = s" using Max_le_1 by auto
-
   ultimately have "(\<forall>i<dim_vec zs. zs $ i \<in> {0, 1}) \<and> zs \<bullet> as = s \<and> dim_vec zs = dim_vec as"
      using zs_dim n_def by auto
   then show ?thesis unfolding subset_sum_def gap_cvp_def by auto
