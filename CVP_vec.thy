@@ -32,7 +32,7 @@ definition is_indep :: "real mat \<Rightarrow> bool" where
 (*L is integer span of B and vectors in B are linearly independent*)
 definition is_lattice :: "lattice \<Rightarrow> bool" where
   "is_lattice L \<equiv> (\<exists>B::(real mat). 
-    (L = range (\<lambda>z::int vec. B *\<^sub>v (real_of_int_vec z))) 
+    L = {B *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_col B} 
     \<and> is_indep B)"
 
 
@@ -40,11 +40,12 @@ definition is_lattice :: "lattice \<Rightarrow> bool" where
 definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
   "gen_lattice A = {A *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_col A}"
 
-(*TODO*)
+
 lemma is_lattice_gen_lattice:
-  "is_lattice (gen_lattice A)"
-unfolding is_lattice_def gen_lattice_def 
-sorry
+  assumes "is_indep A"
+  shows "is_lattice (gen_lattice A)"
+unfolding is_lattice_def gen_lattice_def using assms by auto
+
 
 text \<open>We do not need a fixed type anymore, but can just take the dimension in 
   the vector specification.\<close>
@@ -362,8 +363,9 @@ proof -
       unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
   qed
   ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
+  have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis[of as] by simp
   have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
-    by (auto simp add: is_lattice_gen_lattice)
+    using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
   show ?thesis unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
 qed
 
