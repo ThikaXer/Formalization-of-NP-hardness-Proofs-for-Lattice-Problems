@@ -26,21 +26,25 @@ definition real_to_int_vec :: "real vec \<Rightarrow> int vec"  where
   "real_to_int_vec v = map_vec floor v"
 
 definition is_indep :: "real mat \<Rightarrow> bool" where
-  "is_indep A \<equiv> (\<forall>z::real vec. A *\<^sub>v z = 0\<^sub>v (dim_col A) \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
+  "is_indep A \<equiv> (\<forall>z::real vec. (A *\<^sub>v z = 0\<^sub>v (dim_row A) \<and> dim_col A = dim_vec z) 
+    \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
 
+(*L is integer span of B and vectors in B are linearly independent*)
 definition is_lattice :: "lattice \<Rightarrow> bool" where
-  "is_lattice L \<equiv> (\<exists>B::(real mat). (\<forall>v\<in>L. \<exists>z::int vec. 
-    B *\<^sub>v (real_of_int_vec z) = v) \<and> is_indep B)"
+  "is_lattice L \<equiv> (\<exists>B::(real mat). 
+    (L = range (\<lambda>z::int vec. B *\<^sub>v (real_of_int_vec z))) 
+    \<and> is_indep B)"
 
 
 
 definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
-  "gen_lattice A = {v. \<exists>z::int vec. v = A *\<^sub>v (real_of_int_vec z)}"
+  "gen_lattice A = range (\<lambda>z::int vec. A *\<^sub>v (real_of_int_vec z))"
 
 (*TODO*)
 lemma is_lattice_gen_lattice:
-  "is_lattice (gen_lattice vs)"
-unfolding is_lattice_def gen_lattice_def oops
+  "is_lattice (gen_lattice A)"
+unfolding is_lattice_def gen_lattice_def 
+sorry
 
 text \<open>We do not need a fixed type anymore, but can just take the dimension in 
   the vector specification.\<close>
@@ -131,11 +135,14 @@ lemma set_compr_elem:
   shows "{f i | i. i\<in>A} = {f a} \<union> {f i | i. i\<in>A-{a}}"
 by (safe, use assms in \<open>auto\<close>)
 
-lemma Bx_s_rewrite: 
+
+
+
+lemma Bx_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s) = 
-    vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) = 
+    vec (dim_vec as + 2) (\<lambda> i. if i \<in> {0,1} then real_of_int (x \<bullet> as) 
+    else real_of_int (2 * x$(i-2)))"
     (is "?init_vec = ?goal_vec")
 proof -
   define n::nat where n_def: "n = dim_vec as"
@@ -174,6 +181,16 @@ proof -
     finally show ?case unfolding scalar_prod_def real_of_int_vec_def by auto
   qed
 qed
+
+
+lemma Bx_s_rewrite: 
+  assumes x_dim: "dim_vec as = dim_vec x"
+  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s) = 
+    vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
+      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+    (is "?init_vec = ?goal_vec")
+unfolding gen_t_def by (subst  Bx_rewrite[OF assms], auto)
+
 
 lemma infnorm_Bx_s:
   assumes x_dim: "dim_vec as = dim_vec x"
@@ -219,6 +236,79 @@ proof -
   qed
   finally show ?thesis using n_def by blast
 qed
+
+lemma is_span_gen_basis:
+  "L = range (\<lambda>z. (gen_basis as) *\<^sub>v real_of_int_vec z)"
+sorry
+
+lemma is_indep_gen_basis:
+  "is_indep (gen_basis as)"
+unfolding is_indep_def 
+proof (safe, goal_cases)
+case (1 z)
+  let ?n = "dim_vec as"
+  have z_dim: "dim_vec z = ?n" using 1(2) unfolding gen_basis_def by auto
+  have dim_row: "dim_row (gen_basis as) = ?n + 2" unfolding gen_basis_def by auto
+  have eq: "gen_basis as *\<^sub>v z = vec (?n + 2) (\<lambda> i. if i \<in> {0,1} 
+    then (z \<bullet> (real_of_int_vec as)) else (2 * z$(i-2)))" 
+  (is "gen_basis as *\<^sub>v z = ?goal_vec")
+  proof -
+    have scal_prod_com: "z \<bullet> real_of_int_vec as = real_of_int_vec as \<bullet> z"
+      using comm_scalar_prod[of "real_of_int_vec as" ?n z] z_dim
+      by (metis carrier_dim_vec index_map_vec(2) real_of_int_vec_def)
+    have *: "row (mat (?n+2) (?n) (\<lambda>x. real_of_int
+      (case x of (i, j) \<Rightarrow> if i = 0 \<or> i = Suc 0 then as $ j
+                           else if i = j + 2 then 2 else 0))) i = 
+      (if i\<in>{0,1} then real_of_int_vec as else vec ?n (\<lambda>j. if i = j + 2 then 2 else 0))"
+    (is "?row = ?vec") 
+    if "i<?n+2" for i 
+    using that by (auto simp add: real_of_int_vec_def)
+    then have "?row i \<bullet> z = 
+      (if i \<in> {0,1} then (real_of_int_vec as) \<bullet> z else 2 * z $ (i - 2))"
+    if "i<?n+2" for i
+    using that proof (subst *[OF that], auto, goal_cases)
+    case 1
+      have plus_2: "(i-2 = j) = (i = j+2)" for j using 1 that by auto
+      have finite: "finite {0..<?n}" and elem: "i-2 \<in> {0..<?n}" using that 1 by auto
+      have vec: "vec (dim_vec as) (\<lambda>j. if i = j+2 then 2 else 0) $ ia = 
+        (if i = ia+2 then 2 else 0)" if "ia<?n" for ia
+        using index_vec that by blast
+      then have "(\<Sum>ia = 0..<dim_vec z.
+        vec (dim_vec as) (\<lambda>j. if i = Suc (Suc j) then 2 else 0) $ ia * z $ ia) =
+        (\<Sum>ia = 0..<dim_vec as. (if i = ia+2 then 2 else 0) * z $ ia)"
+        using z_dim by auto
+      also have "\<dots> = (\<Sum>ia = 0..<dim_vec as. (if i = ia+2 then 2 * z $ ia else 0))"
+        proof -
+          have "(\<forall>n. (0 = (if i = n + 2 then 2 else 0) * z $ n \<or> n + 2 = i) \<and> 
+            (2 * z $ n = (if i = n + 2 then 2 else 0) * z $ n \<or> n + 2 \<noteq> i)) \<or> 
+            (\<Sum>n = 0..<dim_vec as. (if i = n + 2 then 2 else 0) * z $ n) = 
+            (\<Sum>n = 0..<dim_vec as. if i = n + 2 then 2 * z $ n else 0)" by simp
+          then show ?thesis by (metis (no_types))
+        qed
+      also have "\<dots> = 2*z$(i-2)" using sum_if_zero[OF finite elem, of "(\<lambda>j. 2*z$j)"]
+        using plus_2 by auto
+      finally show ?case unfolding scalar_prod_def by blast
+    qed
+    then have "?row i \<bullet> z = 
+      (if i \<in> {0,1} then z \<bullet> real_of_int_vec as else 2 * z $ (i - 2))"
+    if "i<?n+2" for i using that by (subst scal_prod_com)
+    then show ?thesis 
+      unfolding gen_basis_def mult_mat_vec_def by auto
+  qed
+  have "\<dots> = 0\<^sub>v (?n + 2)" using 1(1) dim_row by (subst eq[symmetric], auto) 
+  then have "2 * z$(i-2) = 0" if "1<i" and "i<?n +2" for i 
+    using that by (smt (verit, best) cancel_comm_monoid_add_class.diff_cancel 
+      empty_iff index_vec index_zero_vec(1) insert_iff not_less_zero zero_less_diff)
+  then have "z$i = 0" if "i<?n" for i using that by force
+  then show ?case using 1 z_dim unfolding gen_basis_def by auto
+qed
+
+
+
+
+
+
+
 
 text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
 
@@ -266,7 +356,8 @@ proof -
   moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
     unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
   ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
-  have L_lattice: "is_lattice L" sorry
+  have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
+    by (auto simp add: is_lattice_gen_lattice)
   show ?thesis unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
 qed
 
@@ -281,10 +372,18 @@ proof -
   have ex_v: "\<exists>v\<in>L. infnorm (v - b) \<le> 1" and is_lattice: "is_lattice L"
     using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
   then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
-  then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
-    and zs_dim: "dim_vec zs = dim_vec as"
-    using is_lattice v_in_L sorry 
+  then have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
+  proof -
+    have "L = range (\<lambda>z. B *\<^sub>v real_of_int_vec z) \<and> is_indep B"
 
+
+    then show ?thesis
+  using is_lattice unfolding is_lattice_def sorry
+
+
+
+  then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
+    and zs_dim: "dim_vec zs = dim_vec as" by blast
   have init_eq_goal: "v - b = 
     vec (n+2) (\<lambda> i. if i = 0 then real_of_int (zs \<bullet> as - s - 1) else (
       if i = 1 then real_of_int (zs \<bullet> as - s + 1) else real_of_int (2 * zs$(i-2) - 1)))"
