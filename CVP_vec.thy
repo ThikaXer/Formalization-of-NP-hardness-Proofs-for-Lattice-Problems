@@ -38,7 +38,7 @@ definition is_lattice :: "lattice \<Rightarrow> bool" where
 
 
 definition gen_lattice :: "real mat \<Rightarrow> real vec set" where
-  "gen_lattice A = range (\<lambda>z::int vec. A *\<^sub>v (real_of_int_vec z))"
+  "gen_lattice A = {A *\<^sub>v (real_of_int_vec z) | z::int vec. dim_vec z = dim_row A}"
 
 (*TODO*)
 lemma is_lattice_gen_lattice:
@@ -237,9 +237,11 @@ proof -
   finally show ?thesis using n_def by blast
 qed
 
-lemma is_span_gen_basis:
-  "L = range (\<lambda>z. (gen_basis as) *\<^sub>v real_of_int_vec z)"
-sorry
+
+
+text \<open>gen_basis actually generates a basis which is spans the lattice (by definition) and 
+  is linearly independent.\<close>
+
 
 lemma is_indep_gen_basis:
   "is_indep (gen_basis as)"
@@ -354,7 +356,11 @@ proof -
   qed
   finally have "infnorm (?init_vec) \<le> r" by blast
   moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
-    unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
+  proof -
+    have "dim_vec x = dim_row (gen_basis as)" sorry
+    then show ?thesis
+      unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
+  qed
   ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
   have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
     by (auto simp add: is_lattice_gen_lattice)
@@ -374,13 +380,14 @@ proof -
   then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
   then have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
   proof -
-    have "L = range (\<lambda>z. B *\<^sub>v real_of_int_vec z) \<and> is_indep B"
-
-
-    then show ?thesis
-  using is_lattice unfolding is_lattice_def sorry
-
-
+    have "(L = range (\<lambda>z. B *\<^sub>v real_of_int_vec z)) \<and> is_indep B"
+      unfolding L_def B_def gen_lattice_def using is_indep_gen_basis by auto
+    then obtain zs::"int vec" where zs_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
+      and "dim_vec (real_of_int_vec zs) = dim_row B"
+using v_in_L by blast
+    moreover have "dim_vec zs = dim_col B" using zs_def 
+    then show ?thesis using v_in_L  sorry
+  qed
 
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
     and zs_dim: "dim_vec zs = dim_vec as" by blast
