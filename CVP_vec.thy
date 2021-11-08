@@ -3,7 +3,7 @@ theory CVP_vec
 imports Main 
         "poly-reductions/Karp21/Reductions"
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
-        Lattice
+        Lattice_vec
         Subset_Sum
 
 
