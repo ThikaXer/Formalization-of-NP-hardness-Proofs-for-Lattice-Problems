@@ -46,20 +46,24 @@ proof -
     obtain v x where a_def: "a = v + real_of_int x \<cdot>\<^sub>v b" "v \<in> L" "dim_vec v = dim_vec b" 
       using 1 unfolding gen_svp_lattice_def by blast
     then have a_dim: "dim_vec b = dim_row B" using span_B by auto
-    obtain y where v_def: "v = B *\<^sub>v real_of_int_vec y" "dim_vec y = dim_col B" 
+    obtain y where v_def: "v = B *\<^sub>v real_of_int_vec y" and y_dim: "dim_vec y = dim_col B" 
       using \<open>v\<in>L\<close> unfolding span_B by auto 
     define z where "z = vec (dim_vec y + 1) (\<lambda>i. if i< dim_vec y then y$i else x)"
     have "a = B' *\<^sub>v real_of_int_vec z" 
       unfolding B'_def z_def mult_mat_vec_def a_def v_def
-      proof (subst vec_eq_iff, auto simp add: a_dim, goal_cases)
-      case (1 i)
-        then show ?case unfolding scalar_prod_def   sorry
-      qed
-    moreover have "dim_vec z = dim_col B'" sorry
+      by (subst vec_eq_iff, auto simp add: a_dim y_dim scalar_prod_def)
+    moreover have "dim_vec z = dim_col B'" unfolding B'_def z_def by (auto simp add: y_dim)
     ultimately show ?case unfolding gen_svp_lattice_def by blast
   next
   case (2 x z)
-    then show ?case sorry
+    have "dim_row B = dim_vec b"  sorry
+    have "B' *\<^sub>v (real_of_int_vec z) = 
+      B *\<^sub>v vec (dim_col B) (\<lambda>i. z$i) + real_of_int (z$(dim_col B + 1)) \<cdot>\<^sub>v b" 
+      sorry
+    moreover have "B *\<^sub>v (vec (dim_col B) (\<lambda>i. z$i)) \<in> L" using span_B apply auto sorry
+    moreover have "dim_vec (B *\<^sub>v vec (dim_col B) (\<lambda>i. z$i)) = dim_vec b" 
+      unfolding mult_mat_vec_def using \<open>dim_row B = dim_vec b\<close> by auto
+    ultimately show ?case unfolding gen_svp_lattice_def by blast
   qed
 
   moreover have "is_indep B'" sorry

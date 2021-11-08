@@ -52,7 +52,7 @@ definition reduce_cvp_subset_sum ::
 
 text \<open>Lemmas for Proof\<close>
 
-lemma vec_lambda_eq: "(\<forall>i<n. a i = b i) \<longrightarrow> vec n a = vec n b"
+lemma vec_lambda_eq[intro]: "(\<forall>i<n. a i = b i) \<longrightarrow> vec n a = vec n b"
 by auto
 
 lemma eq_fun_applic: assumes "x = y" shows "f x = f y"
@@ -104,7 +104,7 @@ proof -
       vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
       (real_of_int_vec x) $ ia) =
       (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (x $ ia) else 0))"
-      by (intro sum.cong, auto simp add: n_def x_dim real_of_int_vec_def)
+      by (intro sum.cong, auto simp add: n_def x_dim)
     also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
         real_of_int (if i = ib then 2 * (x $ (ib-2)) else 0))" 
     proof - 
