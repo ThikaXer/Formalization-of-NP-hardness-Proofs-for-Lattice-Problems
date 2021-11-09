@@ -27,15 +27,23 @@ definition reduce_svp_cvp:: "(lattice \<times> (real vec) \<times> real) \<Right
 
 text \<open>Lemmas for proof\<close>
 
+find_theorems "_ *\<^sub>v _ = _"
+
+find_theorems "_$_ = _$_"
+
+value "(vec_of_list [0,1,2::nat])$2"
+
+
 
 lemma is_lattice_gen_svp_lattice:
-  assumes "is_lattice L"
+  assumes "is_lattice L" "b\<notin>L"
   shows "is_lattice (gen_svp_lattice L b)"
 proof -
   obtain B where 
     span_B: "L = {B *\<^sub>v real_of_int_vec z |z. dim_vec z = dim_col B}" and
     is_indep_B: "is_indep B" 
     using assms unfolding is_lattice_def by blast
+  have dim_B_dim_b: "dim_row B = dim_vec b" sorry
 
   define B' where B'_def:
     "B' = mat (dim_row B) (dim_col B +1) (\<lambda>(i,j). if j< dim_col B then B $$ (i,j) else b $ i)"
@@ -56,19 +64,29 @@ proof -
     ultimately show ?case unfolding gen_svp_lattice_def by blast
   next
   case (2 x z)
-    have "dim_row B = dim_vec b"  sorry
+    have dim_z_dim_B: "dim_vec z = dim_col B + 1" using 2 unfolding B'_def by auto
     have "B' *\<^sub>v (real_of_int_vec z) = 
-      B *\<^sub>v vec (dim_col B) (\<lambda>i. z$i) + real_of_int (z$(dim_col B + 1)) \<cdot>\<^sub>v b" 
-      sorry
-    moreover have "B *\<^sub>v (vec (dim_col B) (\<lambda>i. z$i)) \<in> L" using span_B apply auto sorry
+      B *\<^sub>v vec (dim_col B) (\<lambda>i. z$i) + real_of_int (z$(dim_col B)) \<cdot>\<^sub>v b" 
+      (is "?left = ?right")
+      unfolding B'_def mult_mat_vec_def using dim_B_dim_b dim_z_dim_B 
+      unfolding scalar_prod_def by auto
+    moreover have "B *\<^sub>v (vec (dim_col B) (\<lambda>i. z$i)) \<in> L"
+    proof -
+      have "dim_vec (vec (dim_col B) (\<lambda>i. z$i)) = dim_col B" using span_B by auto
+      moreover have "vec (dim_col B) (\<lambda>x. real_of_int (z $ x)) = 
+        real_of_int_vec (vec (dim_col B) (\<lambda>x. (z $ x)))" unfolding real_of_int_vec_def by auto
+      ultimately show ?thesis using span_B unfolding real_of_int_vec_def by auto
+    qed
     moreover have "dim_vec (B *\<^sub>v vec (dim_col B) (\<lambda>i. z$i)) = dim_vec b" 
       unfolding mult_mat_vec_def using \<open>dim_row B = dim_vec b\<close> by auto
     ultimately show ?case unfolding gen_svp_lattice_def by blast
   qed
+  
+  then have gen: "gen_svp_lattice L b = gen_lattice B'" sorry
 
-  moreover have "is_indep B'" sorry
+  obtain B'' where "gen_lattice B'' = gen_lattice B'" and "is_indep B''" sorry
 
-  ultimately show ?thesis unfolding is_lattice_def by blast
+  then show ?thesis apply (subst gen) unfolding is_lattice_def gen_lattice_def by blast
 qed
 
 text \<open>Well-definedness of reduction function\<close>
