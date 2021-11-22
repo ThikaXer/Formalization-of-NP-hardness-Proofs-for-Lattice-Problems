@@ -5,6 +5,7 @@ imports Main
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
         Lattice_vec
         Subset_Sum
+        infnorm
 
 
 begin
@@ -13,10 +14,6 @@ begin
 text \<open>We do not need a fixed type anymore, but can just take the dimension in 
   the vector specification.\<close>
 
-text \<open>We need to define the l-infinity norm on vectors.\<close>
-
-definition infnorm ::"'a vec \<Rightarrow> 'a::{linorder, abs}" where
-  "infnorm v \<equiv> Max { \<bar>v$i\<bar> | i. i < dim_vec v}"
 
 
 text \<open>The CVP  in $l_\infty$\<close>
