@@ -39,9 +39,32 @@ text \<open>Lemmas for proof\<close>
 lemma gen_svp_basis_mult: 
   assumes "dim_vec z = dim_vec a + 1"
   shows "(gen_svp_basis a k) *\<^sub>v z = vec (dim_vec a + 1) 
-         (\<lambda>i. if i < dim_vec a then z$i else (k+1) * (z \<bullet> real_of_int_vec a) + 
+         (\<lambda>i. if i < dim_vec a then z$i else (k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i) + 
               (2*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a)))"
-sorry
+using assms proof (subst vec_eq_iff, safe, goal_cases)
+case 1
+  then show ?case using assms unfolding gen_svp_basis_def by auto
+next
+case (2 i)
+  then show ?case proof (cases "i<dim_vec a")
+  case True
+    have "{0..<dim_vec a} = insert i {0..<dim_vec a}" using True by auto
+    then have "(\<Sum>ia = 0..<dim_vec a. (if i = ia then 1 else 0) * z $ ia) = 
+      (\<Sum>ia \<in> insert i {0..<dim_vec a}. (if i = ia then 1 else 0) * z $ ia)" by auto
+    also have "\<dots> = z$i" by (subst sum.insert_remove, auto) 
+    finally have "(\<Sum>ia = 0..<dim_vec a. (if i = ia then 1 else 0) * z $ ia) = z $ i" 
+      by auto
+    then show ?thesis unfolding mult_mat_vec_def gen_svp_basis_def scalar_prod_def 
+      using True assms by auto
+  next
+  case False
+    then have "i = dim_vec a" using 2 by auto
+    then show ?thesis unfolding gen_svp_basis_def using assms 
+      by (auto simp add: scalar_prod_def sum_distrib_left mult.commute mult.left_commute)
+  qed
+qed
+
+
 
 lemma is_indep_gen_svp_basis: 
   assumes "k>0"
@@ -85,7 +108,10 @@ case (1 z)
   then show ?case by auto
 qed
 
-find_theorems "_$_ = _$_"
+lemma real_of_int_abs:
+  "\<bar>real_of_int x\<bar> = real_of_int \<bar>x\<bar>" 
+by auto
+
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -99,12 +125,52 @@ proof (safe, goal_cases)
   then show ?case using is_lattice_gen_lattice is_indep_gen_svp_basis by auto
 next
   case (2 x)
-  define v where "v = (gen_svp_basis a k) *\<^sub>v (real_of_int_vec x)"
-  have "v \<in> gen_lattice (gen_svp_basis a k)"  unfolding v_def gen_lattice_def apply auto sorry
-  moreover have "infnorm v \<le> k" unfolding v_def using 2 apply auto sorry
-  moreover have "v \<noteq> 0\<^sub>v (dim_vec v)" unfolding v_def using 2 apply auto sorry
+  let ?x = "vec (dim_vec x + 1) (\<lambda>i. if i< dim_vec x then x$i else 0)"
+  define v where "v = (gen_svp_basis a k) *\<^sub>v (real_of_int_vec ?x)"
+  have eigen_v: "v = real_of_int_vec ?x" unfolding v_def 
+  proof (subst gen_svp_basis_mult[where a= a and k=k and z="real_of_int_vec ?x"],
+         auto simp add: 2(2) real_of_int_vec_vec comp_def, subst vec_eq_iff,
+         auto simp add: 2(1) scalar_prod_def, goal_cases one two)
+    case (one i)
+    then show ?case by (subst real_of_int_vec_vec, auto simp add: comp_def 2(2))
+  next
+    case (two i)
+    have "(\<Sum>i = 0..<dim_vec a. real_of_int (x $ i) * real_of_int (a $ i)) = 0" 
+      using 2 unfolding scalar_prod_def
+      by (smt (verit) mult.commute of_int_hom.hom_zero of_int_mult of_int_sum sum.cong)
+    then show ?case using 2 by auto
+  qed
+  have "dim_vec ?x = dim_col (gen_svp_basis a k)" 
+    using 2(2) unfolding gen_svp_basis_def by auto
+  then have "v \<in> gen_lattice (gen_svp_basis a k)"  
+    unfolding v_def gen_lattice_def by auto
+  moreover have "infnorm v \<le> k" 
+  proof -
+    have "infnorm v \<le> infnorm x" 
+    proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases)
+    case (3 b)
+      have " \<bar>real_of_int (x $ i)\<bar> \<le> real_of_int (Max {\<bar>x $ j\<bar> |j. j < dim_vec x})" 
+        if "i < dim_vec x" for i 
+      using that by (subst real_of_int_abs, subst of_int_le_iff, subst Max_ge, auto)
+      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 2
+        by (subst Max_ge_iff, auto)
+      ultimately show ?case using 3 by auto
+    qed auto
+    then show ?thesis using 2 by auto
+  qed
+  moreover have "v \<noteq> 0\<^sub>v (dim_vec v)" using 2(3) 
+  proof (subst eigen_v, safe) 
+    assume fst: "x \<noteq> 0\<^sub>v (dim_vec x)" 
+    assume snd: "real_of_int_vec ?x = 0\<^sub>v (dim_vec v)"
+    have "x$i = 0" if "i< dim_vec x" for i using snd
+    by (smt (z3) add.commute dim_vec eigen_v index_map_vec(2) index_vec index_zero_vec(1) 
+      of_int_eq_iff of_int_hom.hom_zero real_of_int_vec_def real_of_int_vec_nth that 
+      trans_less_add2)
+    then show False using fst by auto
+  qed
   ultimately show ?case by blast
 qed
+
 
 
 
