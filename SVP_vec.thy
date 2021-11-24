@@ -237,7 +237,19 @@ proof (safe, goal_cases)
   qed
   moreover have "real_of_int (infnorm x) \<le> k"
   proof - 
-    have "real_of_int (infnorm x) = infnorm v" sorry
+    have "real_of_int (Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
+          Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a}" 
+      using real_of_int_abs sorry
+    also have "\<dots> = Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a + 1}" 
+      using z_last_zero
+      sorry
+    also have "\<dots> = Max {\<bar>real_of_int_vec z $ i\<bar> |i. i < Suc (dim_vec a)}" 
+      using real_of_int_vec_nth[symmetric] apply auto sorry
+    finally have "real_of_int (Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
+                  Max {\<bar>real_of_int_vec z $ i\<bar> |i. i < Suc (dim_vec a)}"
+      by blast
+    then have "real_of_int (infnorm x) = infnorm v" 
+      using x_def z_def v_real_z unfolding infnorm_def by auto
     then show ?thesis using 1(3) by auto
   qed
   ultimately show ?case by blast
