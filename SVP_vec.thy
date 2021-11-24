@@ -122,6 +122,10 @@ lemma well_defined_reduction_svp:
 using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
 proof (safe, goal_cases)
   case (1 x)
+  have "k>0" using assms unfolding bhle_def apply auto sorry
+
+
+
   then show ?case using is_lattice_gen_lattice is_indep_gen_svp_basis by auto
 next
   case (2 x)
@@ -149,10 +153,13 @@ next
     have "infnorm v \<le> infnorm x" 
     proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases)
     case (3 b)
+      have dim_x_nonzero: "dim_vec x \<noteq> 0" sorry
+      then have nonempty: "(\<exists>a\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> a)"
+        using abs_ge_zero by blast
       have " \<bar>real_of_int (x $ i)\<bar> \<le> real_of_int (Max {\<bar>x $ j\<bar> |j. j < dim_vec x})" 
         if "i < dim_vec x" for i 
       using that by (subst real_of_int_abs, subst of_int_le_iff, subst Max_ge, auto)
-      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 2
+      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 2 nonempty
         by (subst Max_ge_iff, auto)
       ultimately show ?case using 3 by auto
     qed auto
@@ -183,9 +190,18 @@ lemma NP_hardness_reduction_svp:
 using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
 proof (safe, goal_cases)
   case (1 v)
-  then show ?case sorry
+  obtain z where 
+    "v = (gen_svp_basis a k) *\<^sub>v real_of_int_vec z" 
+    "dim_vec z = dim_col (gen_svp_basis a k)"
+    using 1(2) unfolding gen_lattice_def by blast
+  define x where "x = vec (dim_vec a) (($) z)"
+  have z_last_zero: "z$(dim_vec a) = 0" sorry
+  have "a \<bullet> x = 0" sorry
+  moreover have "dim_vec x = dim_vec a" unfolding x_def by auto
+  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)" sorry
+  moreover have "real_of_int (infnorm x) < k" sorry
+  ultimately show ?case by blast
 qed
-sorry
 
 
 

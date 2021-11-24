@@ -48,6 +48,7 @@ interpretation vec: vectorspace "type_ring TYPE('a :: field)" "module_vec TYPE('
 
 term "vec_mod.lin_dep"
 
+find_theorems name: lincomb
 
 
 
@@ -66,6 +67,9 @@ lemma real_of_int_vec_nth[simp, intro]:
   "i<dim_vec v \<Longrightarrow> (real_of_int_vec v) $ i = real_of_int (v$i)"
 by (simp add: real_of_int_vec_def)
 
+lemma real_of_int_vec_vec:
+  "real_of_int_vec (vec n f) = vec n (real_of_int \<circ> f)"
+by (auto simp add: real_of_int_vec_def)
 
 
 text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
