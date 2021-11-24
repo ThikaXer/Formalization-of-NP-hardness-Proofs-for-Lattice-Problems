@@ -112,6 +112,19 @@ lemma real_of_int_abs:
   "\<bar>real_of_int x\<bar> = real_of_int \<bar>x\<bar>" 
 by auto
 
+lemma bhle_k_pos:
+  assumes "(a,k) \<in> bhle"
+  shows "k>0"
+using assms unfolding bhle_def 
+proof (safe, goal_cases)
+case (1 x)
+  have "\<exists>i. i\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}" using 1 by auto
+  then have "\<exists>i\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> \<bar>x $ i\<bar>"
+    by (smt (z3) mem_Collect_eq nonneg_int_cases)
+  then have "infnorm x \<ge> 0" unfolding infnorm_def by (subst Max_ge_iff,  auto)
+  then show ?case using 1 by auto
+qed 
+
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -122,10 +135,7 @@ lemma well_defined_reduction_svp:
 using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
 proof (safe, goal_cases)
   case (1 x)
-  have "k>0" using assms unfolding bhle_def apply auto sorry
-
-
-
+  have "k>0" using assms bhle_k_pos by auto
   then show ?case using is_lattice_gen_lattice is_indep_gen_svp_basis by auto
 next
   case (2 x)
@@ -153,7 +163,7 @@ next
     have "infnorm v \<le> infnorm x" 
     proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases)
     case (3 b)
-      have dim_x_nonzero: "dim_vec x \<noteq> 0" sorry
+      have dim_x_nonzero: "dim_vec x \<noteq> 0" using 2(3) by auto
       then have nonempty: "(\<exists>a\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> a)"
         using abs_ge_zero by blast
       have " \<bar>real_of_int (x $ i)\<bar> \<le> real_of_int (Max {\<bar>x $ j\<bar> |j. j < dim_vec x})" 
