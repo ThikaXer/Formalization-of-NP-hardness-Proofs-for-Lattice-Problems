@@ -200,20 +200,37 @@ lemma NP_hardness_reduction_svp:
 using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
 proof (safe, goal_cases)
   case (1 v)
-  obtain z where 
+  obtain z where z_def:
     "v = (gen_svp_basis a k) *\<^sub>v real_of_int_vec z" 
-    "dim_vec z = dim_col (gen_svp_basis a k)"
-    using 1(2) unfolding gen_lattice_def by blast
+    "dim_vec z = dim_vec a + 1"
+    using 1(2) unfolding gen_lattice_def gen_svp_basis_def by auto
   define x where "x = vec (dim_vec a) (($) z)"
   have z_last_zero: "z$(dim_vec a) = 0" sorry
-  have "a \<bullet> x = 0" sorry
+  have v_last_zero: "v$(dim_vec a) = 0" sorry
+  have "k>0" using 1(4) 1(3) unfolding infnorm_def 
+  proof -
+    have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1(4) by auto
+    then have "infnorm v > 0" unfolding infnorm_def using 1(4) by (subst Max_gr_iff, auto)
+    then show ?thesis using 1(3) by auto
+  qed
+  have "a \<bullet> x = 0" 
+  proof -
+    have "0 = ((gen_svp_basis a k) *\<^sub>v real_of_int_vec z) $ (dim_vec a)" 
+      using v_last_zero z_def by auto
+    also have "\<dots> = (k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i)" 
+      by (subst gen_svp_basis_mult, auto simp add: z_def z_last_zero)
+    finally have zero: "(k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i) = 0" by auto
+    then show ?thesis unfolding scalar_prod_def using x_def \<open>k>0\<close>
+    by (smt (verit, ccfv_SIG) atLeastLessThan_iff dim_vec index_vec mult.commute
+       mult_eq_0_iff of_int_hom.hom_0 sum.cong)
+  qed
   moreover have "dim_vec x = dim_vec a" unfolding x_def by auto
-  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)" sorry
+  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)" using 1(4) z_def sorry
   moreover have "real_of_int (infnorm x) < k" sorry
   ultimately show ?case by blast
 qed
 
-
+find_theorems "of_int _ = _"
 
 text \<open>The Gap-SVP is NP-hard.\<close>
 lemma "is_reduction reduce_svp_bhle bhle gap_svp"
