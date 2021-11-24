@@ -117,12 +117,10 @@ lemma bhle_k_pos:
   shows "k>0"
 using assms unfolding bhle_def 
 proof (safe, goal_cases)
-case (1 x)
-  have "\<exists>i. i\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}" using 1 by auto
-  then have "\<exists>i\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> \<bar>x $ i\<bar>"
-    by (smt (z3) mem_Collect_eq nonneg_int_cases)
-  then have "infnorm x \<ge> 0" unfolding infnorm_def by (subst Max_ge_iff,  auto)
-  then show ?case using 1 by auto
+case (1 v)
+  have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1 by auto
+  then have "infnorm v > 0" unfolding infnorm_def using 1 by (subst Max_gr_iff, auto)
+  then show ?thesis using 1 by auto
 qed 
 
 
@@ -207,6 +205,7 @@ proof (safe, goal_cases)
   define x where "x = vec (dim_vec a) (($) z)"
   have z_last_zero: "z$(dim_vec a) = 0" sorry
   have v_last_zero: "v$(dim_vec a) = 0" sorry
+  have v_real_z: "v = real_of_int_vec z" sorry
   have "k>0" using 1(4) 1(3) unfolding infnorm_def 
   proof -
     have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1(4) by auto
@@ -225,12 +224,27 @@ proof (safe, goal_cases)
        mult_eq_0_iff of_int_hom.hom_0 sum.cong)
   qed
   moreover have "dim_vec x = dim_vec a" unfolding x_def by auto
-  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)" using 1(4) z_def sorry
-  moreover have "real_of_int (infnorm x) < k" sorry
+  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)" 
+  proof -
+    have "\<exists>i< dim_vec a + 1. v$i \<noteq> 0" using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
+    then have "\<exists>i< dim_vec a. v$i \<noteq> 0" using v_last_zero
+      by (metis add_le_cancel_right discrete nat_less_le)
+    then obtain i where "i<dim_vec a" "v$i\<noteq>0" by blast
+    then have "real_of_int (z$i) \<noteq> 0" using v_real_z z_def 
+      by (subst real_of_int_vec_nth[symmetric], auto)
+    then have "\<exists>i< dim_vec a. x$i \<noteq> 0" using x_def \<open>i<dim_vec a\<close> by auto
+    then show ?thesis using x_def by auto
+  qed
+  moreover have "real_of_int (infnorm x) \<le> k"
+  proof - 
+    have "real_of_int (infnorm x) = infnorm v" sorry
+    then show ?thesis using 1(3) by auto
+  qed
   ultimately show ?case by blast
 qed
 
-find_theorems "of_int _ = _"
+
+
 
 text \<open>The Gap-SVP is NP-hard.\<close>
 lemma "is_reduction reduce_svp_bhle bhle gap_svp"

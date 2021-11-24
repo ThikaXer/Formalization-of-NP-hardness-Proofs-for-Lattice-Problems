@@ -10,7 +10,7 @@ text \<open>Bounded Homogeneous Linear Equation Problem\<close>
 
 definition bhle :: "(int vec * real) set" where
   "bhle \<equiv> {(a,k). \<exists>x. a \<bullet> x = 0 \<and> dim_vec x = dim_vec a \<and> 
-      x \<noteq> 0\<^sub>v (dim_vec x) \<and> infnorm x < k}"
+      x \<noteq> 0\<^sub>v (dim_vec x) \<and> infnorm x \<le> k}"
 
 text \<open>Reduction of bounded homogeneous linear equation to partition problem\<close>
 
