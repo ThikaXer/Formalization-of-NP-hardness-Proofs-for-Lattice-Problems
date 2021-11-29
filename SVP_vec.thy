@@ -25,7 +25,7 @@ definition gen_svp_basis :: "int vec \<Rightarrow> real \<Rightarrow> real mat" 
     (\<lambda> (i, j). if (i < dim_vec a) \<and> (j< dim_vec a) then (if i = j then 1 else 0)
       else (if (i < dim_vec a) \<and> (j \<ge> dim_vec a) then 0 
       else (if (i \<ge> dim_vec a) \<and> (j < dim_vec a) then (k+1) * (a $ j)
-      else 2*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1 )))"
+      else k*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1 )))"
 
 
 text \<open>Reduction SVP to bounded homogeneous linear equation problem in $l_\infty$ norm.\<close>
@@ -40,7 +40,7 @@ lemma gen_svp_basis_mult:
   assumes "dim_vec z = dim_vec a + 1"
   shows "(gen_svp_basis a k) *\<^sub>v z = vec (dim_vec a + 1) 
          (\<lambda>i. if i < dim_vec a then z$i else (k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i) + 
-              (2*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a)))"
+              (k*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a)))"
 using assms proof (subst vec_eq_iff, safe, goal_cases)
 case 1
   then show ?case using assms unfolding gen_svp_basis_def by auto
@@ -68,7 +68,7 @@ lemma gen_svp_basis_mult_last:
   assumes "dim_vec z = dim_vec a + 1"
   shows "((gen_svp_basis a k) *\<^sub>v z) $ (dim_vec a) = 
          (k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i) + 
-              (2*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a))"
+              (k*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a))"
 using gen_svp_basis_mult[OF assms] by auto
 
 
@@ -89,21 +89,25 @@ case (1 z)
       using gen_svp_basis_mult[OF suc_dim_a_dim_z] that by auto
     show ?thesis by (subst elem[symmetric]) (use alt1[of i] that in \<open>auto\<close>) 
   qed
-  moreover have "z $ (dim_vec a) = 0" 
+  moreover have "z $ (dim_vec a) = 0"
   proof -
     have "0 = (gen_svp_basis a k *\<^sub>v z) $ (dim_vec a)" using alt1 by auto
     also have "\<dots> = vec (Suc (dim_vec a))
        (\<lambda>j. if j < dim_vec a then (k + 1) * real_of_int (a $ j)
-         else 2 * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1) \<bullet> z" 
+         else k * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1) \<bullet> z" 
       unfolding gen_svp_basis_def by auto
-    also have "\<dots> =  (2 * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) * (z$dim_vec a)"
+    also have "\<dots> =  (k * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) * (z$dim_vec a)"
       unfolding scalar_prod_def using suc_dim_a_dim_z using z_upto_last by auto
-    finally have "0 = (2 * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) * 
+    finally have "0 = (k * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) * 
                       (z$dim_vec a)" by blast
-    moreover have "(2 * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) \<noteq> 0"
+    moreover have "(k * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) \<noteq> 0"
+
+(*Problems here when changing 2*(k+1) to k*(k+1). 
+  This is necessary since k'a only is smaller than k'' under the assumtion that z$i\<le>k, not z$i\<le>2.*)
+
     proof (safe)
-      assume ass: "(2 * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) = 0"
-      then show False
+      assume ass: "(k * (k + 1) * real_of_int (sum (($) a) {0..<dim_vec a}) + 1 ) = 0"
+      then show False using assms  sorry
         by (smt (z3) ass assms divide_less_eq_1_pos mult_minus_right nonzero_mult_div_cancel_left 
           of_int_hom.hom_one of_int_less_iff of_int_minus)
     qed
@@ -212,28 +216,77 @@ lemma NP_hardness_reduction_svp:
 using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
 proof (safe, goal_cases)
   case (1 v)
-  obtain z where z_def:
-    "v = (gen_svp_basis a k) *\<^sub>v real_of_int_vec z" 
-    "dim_vec z = dim_vec a + 1"
-    using 1(2) unfolding gen_lattice_def gen_svp_basis_def by auto
-  have dim_v_dim_a:"dim_vec v = dim_vec a + 1" using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
-  define x where "x = vec (dim_vec a) (($) z)"
-  have z_last_zero: "z$(dim_vec a) = 0" sorry
-  then have v_last_zero: "v$(dim_vec a) = 0" 
-  proof -
-    have "v$(dim_vec a) = 
-      (k+1) * (\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i))"
-    by (subst z_def(1), subst gen_svp_basis_mult_last, use z_def z_last_zero in \<open>auto\<close>)
-    moreover have "v $ dim_vec a \<le> k" using 1(3) dim_v_dim_a unfolding infnorm_def apply auto
-
-  have v_real_z: "v = real_of_int_vec z" sorry
-  have "dim_vec a > 0" sorry
   have "k>0" using 1(4) 1(3) unfolding infnorm_def 
   proof -
     have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1(4) by auto
     then have "infnorm v > 0" unfolding infnorm_def using 1(4) by (subst Max_gr_iff, auto)
     then show ?thesis using 1(3) by auto
   qed
+  obtain z where z_def:
+    "v = (gen_svp_basis a k) *\<^sub>v real_of_int_vec z" 
+    "dim_vec z = dim_vec a + 1"
+    using 1(2) unfolding gen_lattice_def gen_svp_basis_def by auto
+  have dim_v_dim_a:"dim_vec v = dim_vec a + 1" 
+    using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
+  define x where "x = vec (dim_vec a) (($) z)"
+  have "v $ i = z $ i" if "i< dim_vec a" for i 
+    by (subst z_def) (subst gen_svp_basis_mult; use that z_def in \<open>auto\<close>)
+  have v_le_k: "\<bar>v $ i\<bar> \<le> k" if "i< dim_vec a + 1" for i
+    using 1(3) dim_v_dim_a that unfolding infnorm_def
+    using Max_le_iff[of "{\<bar>v $ i\<bar> |i. i < dim_vec v}" k]
+    by fastforce
+  have v_last_zero: "v$(dim_vec a) = 0"
+  proof (rule ccontr)
+    assume ccontr_assms:"v $ dim_vec a \<noteq> 0"
+    have v_last: "v$(dim_vec a) = 
+      (k+1) * (\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i)) +
+      (k* (k+1) * (\<Sum>x = 0..<dim_vec a. real_of_int (a $ x)) + 1) * (z $ dim_vec a) "
+      (is "v$(dim_vec a) = ?first + ?second")
+    by (subst z_def(1), subst gen_svp_basis_mult_last, use z_def  in \<open>auto\<close>)
+    then have "?first \<noteq> 0 \<or> ?second \<noteq> 0"
+      using ccontr_assms by auto
+    then consider 
+      (first) "?first \<noteq> 0 \<and> ?second = 0" | 
+      (second) "?second \<noteq> 0 \<and> ?first = 0" |
+      (both) "?first \<noteq> 0 \<and> ?second \<noteq> 0"
+      by blast
+    then show False 
+    proof (cases)
+      case first
+      then have "\<bar>\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i)\<bar>\<noteq>0" 
+        using \<open>k>0\<close> by auto
+      then have "\<bar>\<Sum>i = 0..<dim_vec a. (z $ i) * (a $ i)\<bar>\<noteq>0" 
+        by (smt (verit) of_int_hom.hom_zero of_int_mult of_int_sum sum.cong)
+      then have "\<bar>\<Sum>i = 0..<dim_vec a.  (z $ i) *  (a $ i)\<bar>\<ge>1" by auto
+      then have gr_1: "\<bar>\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i)\<bar> \<ge> 1" 
+        using of_int_1_le_iff[of "\<bar>\<Sum>i = 0..<dim_vec a. z $ i * a $ i\<bar>"] 
+        by auto
+      have "\<bar>v$ dim_vec a\<bar> = \<bar>?first\<bar>" using first v_last by auto
+      also have "\<dots> = (k+1) * \<bar>\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i)\<bar>"
+        using \<open>k>0\<close>
+        by (smt (verit, best) linordered_semiring_strict_class.mult_pos_pos mult_minus_right)
+      also have "\<dots> > k" using first gr_1 \<open>k>0\<close>
+      by (smt (verit, best) divide_less_eq_1_pos nonzero_mult_div_cancel_left)
+      finally have "\<bar>v$ dim_vec a\<bar> > k" by auto
+      then show ?thesis using v_le_k[of "dim_vec a"] by auto
+    next
+      case second
+      then show ?thesis sorry
+    next
+      case both
+      then show ?thesis sorry
+    qed
+
+
+
+find_theorems of_int "_\<le>_"
+
+
+  have z_last_zero: "z$(dim_vec a) = 0" sorry
+
+  have v_real_z: "v = real_of_int_vec z" sorry
+  have "dim_vec a > 0" sorry
+
   have "a \<bullet> x = 0" 
   proof -
     have "0 = ((gen_svp_basis a k) *\<^sub>v real_of_int_vec z) $ (dim_vec a)" 
