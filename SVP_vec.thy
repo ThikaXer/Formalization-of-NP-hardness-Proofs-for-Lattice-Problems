@@ -64,6 +64,12 @@ case (2 i)
   qed
 qed
 
+lemma gen_svp_basis_mult_last: 
+  assumes "dim_vec z = dim_vec a + 1"
+  shows "((gen_svp_basis a k) *\<^sub>v z) $ (dim_vec a) = 
+         (k+1) * (\<Sum> i \<in> {0 ..< dim_vec a}. z $ i * a $ i) + 
+              (2*(k+1)* (\<Sum> i \<in> {0 ..< dim_vec a}. a $ i) +1) * (z$(dim_vec a))"
+using gen_svp_basis_mult[OF assms] by auto
 
 
 lemma is_indep_gen_svp_basis: 
@@ -111,6 +117,14 @@ qed
 lemma real_of_int_abs:
   "\<bar>real_of_int x\<bar> = real_of_int \<bar>x\<bar>" 
 by auto
+
+lemma mono_real_of_int[simp]:
+  "mono real_of_int"
+unfolding mono_def by auto
+
+lemma insert_set_comprehension:
+  "insert (f x) {f i |i. i<(x::nat)} = {f i | i. i<x+1}"
+using less_SucE by fastforce
 
 lemma bhle_k_pos:
   assumes "(a,k) \<in> bhle"
@@ -202,10 +216,18 @@ proof (safe, goal_cases)
     "v = (gen_svp_basis a k) *\<^sub>v real_of_int_vec z" 
     "dim_vec z = dim_vec a + 1"
     using 1(2) unfolding gen_lattice_def gen_svp_basis_def by auto
+  have dim_v_dim_a:"dim_vec v = dim_vec a + 1" using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
   define x where "x = vec (dim_vec a) (($) z)"
   have z_last_zero: "z$(dim_vec a) = 0" sorry
-  have v_last_zero: "v$(dim_vec a) = 0" sorry
+  then have v_last_zero: "v$(dim_vec a) = 0" 
+  proof -
+    have "v$(dim_vec a) = 
+      (k+1) * (\<Sum>i = 0..<dim_vec a. real_of_int (z $ i) * real_of_int (a $ i))"
+    by (subst z_def(1), subst gen_svp_basis_mult_last, use z_def z_last_zero in \<open>auto\<close>)
+    moreover have "v $ dim_vec a \<le> k" using 1(3) dim_v_dim_a unfolding infnorm_def apply auto
+
   have v_real_z: "v = real_of_int_vec z" sorry
+  have "dim_vec a > 0" sorry
   have "k>0" using 1(4) 1(3) unfolding infnorm_def 
   proof -
     have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1(4) by auto
@@ -237,14 +259,32 @@ proof (safe, goal_cases)
   qed
   moreover have "real_of_int (infnorm x) \<le> k"
   proof - 
+    have zs: "\<bar>z$i\<bar> = \<bar>vec (dim_vec a) (($) z) $ i\<bar>" if "i < dim_vec a" for i using that by auto
     have "real_of_int (Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
-          Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a}" 
-      using real_of_int_abs sorry
+               Max (real_of_int ` {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a})" 
+      using \<open>dim_vec a > 0\<close>
+      by (subst mono_Max_commute[of real_of_int]) auto
+    also have "\<dots> = Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a}" 
+      using  zs by (subst real_of_int_abs)(smt (z3) Collect_cong Setcompr_eq_image mem_Collect_eq)
     also have "\<dots> = Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a + 1}" 
-      using z_last_zero
-      sorry
-    also have "\<dots> = Max {\<bar>real_of_int_vec z $ i\<bar> |i. i < Suc (dim_vec a)}" 
-      using real_of_int_vec_nth[symmetric] apply auto sorry
+    proof -
+      have "Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a} \<ge> 0" 
+        using \<open>dim_vec a >0\<close> by (subst Max_ge_iff, auto)
+      then have "Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a} \<ge> \<bar>real_of_int (z$dim_vec a)\<bar>"
+        using z_last_zero by simp
+      then have "Max {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a} = 
+        Max (insert ( \<bar>real_of_int (z$dim_vec a)\<bar>) {\<bar>real_of_int (z $ i)\<bar> |i. i < dim_vec a})"
+        using \<open>dim_vec a > 0\<close> by (subst Max_insert, auto)
+      then show ?thesis 
+        using insert_set_comprehension[of "(\<lambda>i. \<bar>real_of_int (z $ i)\<bar>)" "dim_vec a"] by auto
+    qed
+    also have "\<dots> = Max {\<bar>real_of_int_vec z $ i\<bar> |i. i < Suc (dim_vec a)}"
+    proof -
+      have "real_of_int (z $ i) = real_of_int_vec z $ i" if "i < Suc (dim_vec a)" for i
+        using real_of_int_vec_nth[symmetric] z_def(2) that by auto
+      then show ?thesis
+        by (metis (no_types, hide_lams) One_nat_def add.commute add.right_neutral add_Suc)
+    qed
     finally have "real_of_int (Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
                   Max {\<bar>real_of_int_vec z $ i\<bar> |i. i < Suc (dim_vec a)}"
       by blast
@@ -254,7 +294,6 @@ proof (safe, goal_cases)
   qed
   ultimately show ?case by blast
 qed
-
 
 
 
