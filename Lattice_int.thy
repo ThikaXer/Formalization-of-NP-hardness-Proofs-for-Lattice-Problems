@@ -1,0 +1,155 @@
+theory Lattice_int
+
+imports Main
+        "Jordan_Normal_Form.Matrix"
+        "Jordan_Normal_Form.Matrix_Kernel"
+        "Jordan_Normal_Form.DL_Rank"
+        "Jordan_Normal_Form.Complexity_Carrier"
+        "Jordan_Normal_Form.Conjugate"
+        "Jordan_Normal_Form.Ring_Hom_Matrix"
+        "VectorSpace.LinearCombinations"
+
+begin
+
+text \<open>Connect the type vec to records of rings, commutative rings, fields and modules in order to
+  use properties of modules such as lin_indpt (linear independence).\<close>
+definition type_ring :: "'a :: ring_1 itself \<Rightarrow> 'a ring" where
+  "type_ring _ = \<lparr>carrier = UNIV, mult = (*), one = 1, zero = 0, add = (+)\<rparr>"
+
+lemma type_ring_simps [simp]:
+  "carrier (type_ring ty) = UNIV"
+  "mult (type_ring ty) = (*)"
+  "one (type_ring ty) = 1"
+  "zero (type_ring ty) = 0"
+  "add (type_ring ty) = (+)"
+  by (auto simp: type_ring_def)
+
+lemma Units_type_cring: "Units (type_ring (ty :: 'a :: comm_ring_1 itself)) = {x. x dvd 1}"
+  unfolding Units_def by (auto simp: algebra_simps dvd_def)
+
+lemma Units_type_field [simp]: "Units (type_ring (ty :: 'a :: field itself)) = -{0}"
+  unfolding Units_type_cring by (auto simp: dvd_field_iff)
+
+interpretation type_ring: ring "type_ring TYPE('a :: ring_1)"
+  by standard (auto simp: algebra_simps Units_def add_eq_0_iff)
+
+interpretation type_cring: cring "type_ring TYPE('a :: comm_ring_1)"
+  by standard (auto simp: algebra_simps)
+
+interpretation type_field: field "type_ring TYPE('a :: field)"
+  by standard auto
+
+interpretation vec_mod: Module.module "type_ring TYPE('a :: comm_ring_1)" "module_vec TYPE('a) n" for n
+  by standard
+     (use add_inv_exists_vec in \<open>auto simp: module_vec_simps algebra_simps comm_add_vec Units_def\<close>)
+
+interpretation vec: vectorspace "type_ring TYPE('a :: field)" "module_vec TYPE('a) n"
+  ..
+
+term "vec_mod.lin_dep"
+
+find_theorems name: lincomb
+
+
+
+text \<open>Concrete type conversion int vec to real vec\<close>
+definition real_of_int_vec :: "int vec \<Rightarrow> real vec"  where
+  "real_of_int_vec v = map_vec real_of_int v"
+
+definition real_to_int_vec :: "real vec \<Rightarrow> int vec"  where
+  "real_to_int_vec v = map_vec floor v"
+
+
+lemma[simp]: "dim_vec (real_of_int_vec v) = dim_vec v" 
+  unfolding real_of_int_vec_def by auto
+
+lemma real_of_int_vec_nth[simp, intro]: 
+  "i<dim_vec v \<Longrightarrow> (real_of_int_vec v) $ i = real_of_int (v$i)"
+by (simp add: real_of_int_vec_def)
+
+lemma real_of_int_vec_vec:
+  "real_of_int_vec (vec n f) = vec n (real_of_int \<circ> f)"
+by (auto simp add: real_of_int_vec_def)
+
+text \<open>Concrete type conversion int mat to real mat\<close>
+definition real_of_int_mat :: "int mat \<Rightarrow> real mat"  where
+  "real_of_int_mat A = map_mat real_of_int A"
+
+definition real_to_int_mat :: "real mat \<Rightarrow> int mat"  where
+  "real_to_int_mat A = map_mat floor A"
+
+
+lemma[simp]: "dim_col (real_of_int_mat A) = dim_col A" 
+  unfolding real_of_int_mat_def by auto
+
+lemma[simp]: "dim_row (real_of_int_mat A) = dim_row A" 
+  unfolding real_of_int_mat_def by auto
+
+lemma real_of_int_mat_nth[simp, intro]: 
+  "i<dim_row A \<Longrightarrow> j<dim_col A \<Longrightarrow> (real_of_int_mat A) $$ (i,j) = real_of_int (A $$ (i,j))"
+by (simp add: real_of_int_mat_def)
+
+lemma real_of_int_mat_mat:
+  "real_of_int_mat (mat n m f) = mat n m (real_of_int \<circ> f)"
+by (auto simp add: real_of_int_mat_def)
+
+
+text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
+  Lattices can be represented by a basis, multiple bases can represent the same lattice.\<close>
+type_synonym lattice = "int vec set"
+
+
+text \<open>A lattice basis is a linearly independent set of vectors whose integer span is the lattice.\<close>
+(*definition is_indep :: "real mat \<Rightarrow> bool" where
+  "is_indep A = vec_mod.lin_indpt (dim_row A) (set (cols A))"
+
+find_theorems name: lin_indpt
+
+lemma is_indep_altdef :
+  "is_indep A \<equiv> (\<forall>z::real vec. (A *\<^sub>v z = 0\<^sub>v (dim_row A) \<and> dim_col A = dim_vec z) 
+    \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
+unfolding is_indep_def apply (subst vec_mod.finite_lin_indpt2) apply auto  sorry*)
+definition is_indep :: "int mat \<Rightarrow> bool" where
+  "is_indep A \<equiv> (\<forall>z::real vec. (real_of_int_mat A *\<^sub>v z = 0\<^sub>v (dim_row A) \<and> dim_col A = dim_vec z) 
+    \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
+
+(*L is integer span of B and vectors in B are linearly independent*)
+definition is_lattice :: "lattice \<Rightarrow> bool" where
+  "is_lattice L \<equiv> (\<exists>B::(int mat). 
+    L = {B *\<^sub>v z | z::int vec. dim_vec z = dim_col B} 
+    \<and> is_indep B)"
+
+text \<open>The dimension of the lattice is the same for all possible bases -> Show this!\<close>
+definition dim_lattice :: "lattice \<Rightarrow> nat" where
+  "dim_lattice L = todo"
+
+
+text \<open>The lattice generated by the column vectors of a matrix. 
+  This matrix does not need to be linearly independent. 
+  Make certain that the output is indeed a lattice and not the entire space.\<close>
+definition gen_lattice :: "int mat \<Rightarrow> int vec set" where
+  "gen_lattice A = {A *\<^sub>v z | z::int vec. dim_vec z = dim_col A}"
+
+text \<open>But we can always find a linearly independent matrix, that spans the same lattice 
+  (if the lattice is not the entire space).\<close>
+lemma ex_indep_basis: 
+  "\<exists>B'. gen_lattice B' = gen_lattice B \<and> is_indep B'"
+sorry
+
+lemma get_indep_basis: 
+  obtains B' where "gen_lattice B' = gen_lattice B" and "is_indep B'"
+using ex_indep_basis by blast
+
+
+text \<open>A lattice generated by a linearly independent matrix is indeed a lattice.\<close>
+lemma is_lattice_gen_lattice:
+  assumes "is_indep A"
+  shows "is_lattice (gen_lattice A)"
+unfolding is_lattice_def gen_lattice_def using assms by auto
+
+
+
+
+
+
+end

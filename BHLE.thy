@@ -4,6 +4,7 @@ imports Main
         "Jordan_Normal_Form.Matrix"
         infnorm
         Partition
+        Lattice_vec
 
 begin
 text \<open>Bounded Homogeneous Linear Equation Problem\<close>
