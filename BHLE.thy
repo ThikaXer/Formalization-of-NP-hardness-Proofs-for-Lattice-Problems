@@ -4,12 +4,12 @@ imports Main
         "Jordan_Normal_Form.Matrix"
         infnorm
         Partition
-        Lattice_vec
+        Lattice_int
 
 begin
 text \<open>Bounded Homogeneous Linear Equation Problem\<close>
 
-definition bhle :: "(int vec * real) set" where
+definition bhle :: "(int vec * int) set" where
   "bhle \<equiv> {(a,k). \<exists>x. a \<bullet> x = 0 \<and> dim_vec x = dim_vec a \<and> 
       x \<noteq> 0\<^sub>v (dim_vec x) \<and> infnorm x \<le> k}"
 
