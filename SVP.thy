@@ -102,22 +102,24 @@ proof (intro eq_vecI, goal_cases)
       by (auto simp add: sum_distrib_left fact)
   next
     case False
-    have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) * real_of_int (x $ ia)) =
-          (\<Sum>ib=1..<dim_vec as+1. real_of_int (if i = ib then 2 else 0) * real_of_int (x $ (ib-1)))"
+    have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) *  (x $ ia)) =
+          (\<Sum>ib=1..<dim_vec as+1. real_of_int (if i = ib then 2 else 0) *  (x $ (ib-1)))"
       using sum.atLeastLessThan_shift_0[of 
-      "(\<lambda>ib. real_of_int (if i = ib then 2 else 0) * real_of_int (x $ (ib - 1)))" 
+      "(\<lambda>ib. real_of_int (if i = ib then 2 else 0) * (x $ (ib - 1)))" 
       1 "dim_vec as + 1"] by auto
-    also have "\<dots> = (\<Sum>ib=1..<dim_vec as+1. real_of_int (if i = ib then 2*x $ (ib-1) else 0))" 
+    also have "\<dots> = (\<Sum>ib=1..<dim_vec as+1. (if i = ib then 2*x $ (ib-1) else 0))" 
     proof -
-      have "\<forall>n. real_of_int (if i = n then 2 else 0) * real_of_int (x $ (n - 1)) = 
-        real_of_int (if i = n then 2 * x $ (n - 1) else 0)" by simp
-      then show ?thesis by presburger
-      qed
-    also have "\<dots> = real_of_int (\<Sum>ib=1..<dim_vec as+1. (if i = ib then 2*x $ (ib-1) else 0))"
-      by (metis (no_types) of_int_sum)
-    also have "\<dots> = real_of_int 2*x $ (i-1)" using 1 False by (subst sum_if_zero) auto
-    finally have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) * real_of_int (x $ ia)) =
-      2 * real_of_int (x $ (i - 1))" by auto
+      have "(\<forall>n. (0 = real_of_int (if i = n then 2 else 0) * x $ (n - 1) \<or> i = n) \<and> 
+        (2 * x $ (n - 1) = real_of_int (if i = n then 2 else 0) * x $ (n - 1) \<or> i \<noteq> n)) \<or> 
+        (\<Sum>n = 1..<dim_vec as + 1. real_of_int (if i = n then 2 else 0) * x $ (n - 1)) = 
+        (\<Sum>n = 1..<dim_vec as + 1. if i = n then 2 * x $ (n - 1) else 0)"
+        by fastforce
+      then show ?thesis
+        by (metis (no_types))
+    qed
+    also have "\<dots> =  2*x $ (i-1)" using 1 False by (subst sum_if_zero) auto
+    finally have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) * (x $ ia)) =
+      2 * (x $ (i - 1))" by auto
     then show ?thesis unfolding gen_basis_svp_def mult_mat_vec_def scalar_prod_def 
       using 1 False assms by auto
   qed
@@ -130,108 +132,38 @@ lemma Bx_rewrite:
       real_of_int (2 * (\<Sum>i<dim_vec as. x $ i * as $ i) + 2 * x $ (dim_vec as) * s)
     else real_of_int (2 * x$(i-1) + x$(dim_vec as)))"
     (is "?init_vec = ?goal_vec")
-proof (intro eq_vecI, goal_cases)
-  case (1 i)
-  show ?case
-  proof (cases "i=0")
-    case True
-    have fact: "(\<Sum>i = 0..<dim_vec as. 2 * real_of_int (as $ i) * real_of_int (x $ i)) =
-          (\<Sum>n<dim_vec as. 2 * (real_of_int (x $ n) * real_of_int (as $ n)))"
-    by (subst sum.cong, auto)
-    show ?thesis unfolding gen_basis_svp_def mult_mat_vec_def scalar_prod_def using True assms
-      by (auto simp add: sum_distrib_left fact)
-  next
-    case False
-    have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) * real_of_int (x $ ia)) =
-          (\<Sum>ib=1..<dim_vec as+1. real_of_int (if i = ib then 2 else 0) * real_of_int (x $ (ib-1)))"
-      using sum.atLeastLessThan_shift_0[of 
-      "(\<lambda>ib. real_of_int (if i = ib then 2 else 0) * real_of_int (x $ (ib - 1)))" 
-      1 "dim_vec as + 1"] by auto
-    also have "\<dots> = (\<Sum>ib=1..<dim_vec as+1. real_of_int (if i = ib then 2*x $ (ib-1) else 0))" 
-    proof -
-      have "\<forall>n. real_of_int (if i = n then 2 else 0) * real_of_int (x $ (n - 1)) = 
-        real_of_int (if i = n then 2 * x $ (n - 1) else 0)" by simp
-      then show ?thesis by presburger
-      qed
-    also have "\<dots> = real_of_int (\<Sum>ib=1..<dim_vec as+1. (if i = ib then 2*x $ (ib-1) else 0))"
-      by (metis (no_types) of_int_sum)
-    also have "\<dots> = real_of_int 2*x $ (i-1)" using 1 False by (subst sum_if_zero) auto
-    finally have "(\<Sum>ia=0..<dim_vec as. real_of_int (if i = ia+1 then 2 else 0) * real_of_int (x $ ia)) =
-      2 * real_of_int (x $ (i - 1))" by auto
-    then show ?thesis unfolding gen_basis_svp_def mult_mat_vec_def scalar_prod_def 
-      using 1 False assms by auto
-  qed
-qed (auto simp add: gen_basis_svp_def)
+using Bx_rewrite_real[of "real_of_int_vec x"] assms by auto
 
 
 
 
-
+(*
 text \<open>gen_basis_svp actually generates a basis which is spans the lattice (by definition) and 
   is linearly independent.\<close>
 
 
 lemma is_indep_gen_basis_svp:
   "is_indep (gen_basis_svp as s)"
+oops
+  This statement is not true for general as, s. The columns might not be linearly independent 
+  over R, but might still generate a unique lattice
 unfolding is_indep_def 
 proof (safe, goal_cases)
 case (1 z)
-  let ?n = "dim_vec as"
-  have z_dim: "dim_vec z = ?n +1" using 1(2) unfolding gen_basis_svp_def by auto
-  have dim_row: "dim_row (gen_basis_svp as s) = ?n + 1" unfolding gen_basis_svp_def by auto
-  have eq: "gen_basis_svp as s *\<^sub>v z = vec (?n + 1) (\<lambda> i. if i = 0 
-    then (z \<bullet> (real_of_int_vec as)) else (2 * z$(i-2)))" 
-  (is "gen_basis_svp as s *\<^sub>v z = ?goal_vec")
-  proof -
-    have scal_prod_com: "z \<bullet> real_of_int_vec as = real_of_int_vec as \<bullet> z"
-      using comm_scalar_prod[of "real_of_int_vec as" ?n z] z_dim
-      by (metis carrier_dim_vec index_map_vec(2) real_of_int_vec_def)
-    have *: "row (mat (?n+2) (?n) (\<lambda>x. real_of_int
-      (case x of (i, j) \<Rightarrow> if i = 0 \<or> i = Suc 0 then as $ j
-                           else if i = j + 2 then 2 else 0))) i = 
-      (if i\<in>{0,1} then real_of_int_vec as else vec ?n (\<lambda>j. if i = j + 2 then 2 else 0))"
-    (is "?row = ?vec") 
-    if "i<?n+2" for i 
-    using that by (auto simp add: real_of_int_vec_def)
-    then have "?row i \<bullet> z = 
-      (if i \<in> {0,1} then (real_of_int_vec as) \<bullet> z else 2 * z $ (i - 2))"
-    if "i<?n+2" for i
-    using that proof (subst *[OF that], auto, goal_cases)
-    case 1
-      have plus_2: "(i-2 = j) = (i = j+2)" for j using 1 that by auto
-      have finite: "finite {0..<?n}" and elem: "i-2 \<in> {0..<?n}" using that 1 by auto
-      have vec: "vec (dim_vec as) (\<lambda>j. if i = j+2 then 2 else 0) $ ia = 
-        (if i = ia+2 then 2 else 0)" if "ia<?n" for ia
-        using index_vec that by blast
-      then have "(\<Sum>ia = 0..<dim_vec z.
-        vec (dim_vec as) (\<lambda>j. if i = Suc (Suc j) then 2 else 0) $ ia * z $ ia) =
-        (\<Sum>ia = 0..<dim_vec as. (if i = ia+2 then 2 else 0) * z $ ia)"
-        using z_dim by auto
-      also have "\<dots> = (\<Sum>ia = 0..<dim_vec as. (if i = ia+2 then 2 * z $ ia else 0))"
-        proof -
-          have "(\<forall>n. (0 = (if i = n + 2 then 2 else 0) * z $ n \<or> n + 2 = i) \<and> 
-            (2 * z $ n = (if i = n + 2 then 2 else 0) * z $ n \<or> n + 2 \<noteq> i)) \<or> 
-            (\<Sum>n = 0..<dim_vec as. (if i = n + 2 then 2 else 0) * z $ n) = 
-            (\<Sum>n = 0..<dim_vec as. if i = n + 2 then 2 * z $ n else 0)" by simp
-          then show ?thesis by (metis (no_types))
-        qed
-      also have "\<dots> = 2*z$(i-2)" using sum_if_zero[OF finite elem, of "(\<lambda>j. 2*z$j)"]
-        using plus_2 by auto
-      finally show ?case unfolding scalar_prod_def by blast
-    qed
-    then have "?row i \<bullet> z = 
-      (if i \<in> {0,1} then z \<bullet> real_of_int_vec as else 2 * z $ (i - 2))"
-    if "i<?n+2" for i using that by (subst scal_prod_com)
-    then show ?thesis 
-      unfolding gen_basis_svp_def mult_mat_vec_def by auto
-  qed
-  have "\<dots> = 0\<^sub>v (?n + 2)" using 1(1) dim_row by (subst eq[symmetric], auto) 
-  then have "2 * z$(i-2) = 0" if "1<i" and "i<?n +2" for i 
+  have z_dim: "dim_vec z = dim_vec as + 1" using 1(2) unfolding gen_basis_svp_def by auto
+  have dim_row: "dim_row (gen_basis_svp as s) = dim_vec as + 1" unfolding gen_basis_svp_def by auto
+  have eq: "gen_basis_svp as s *\<^sub>v z = vec (dim_vec as + 1) (\<lambda> i. if i = 0 then 
+       (2 * (\<Sum>i<dim_vec as. z $ i * of_int (as $ i)) + 2 * z $ (dim_vec as) * of_int s)
+    else (2 * z$(i-1) + z$(dim_vec as)))" 
+  using Bx_rewrite_real z_dim by auto
+  have "\<dots> = 0\<^sub>v (dim_vec as + 1)" using 1(1) dim_row by (subst eq[symmetric], auto) 
+  then have "2 * z$(i-1) + z$(dim_vec as) = 0" if "1<i" and "i<dim_vec as + 1" for i 
     using that by (smt (verit, best) cancel_comm_monoid_add_class.diff_cancel 
       empty_iff index_vec index_zero_vec(1) insert_iff not_less_zero zero_less_diff)
-  then have "z$i = 0" if "i<?n" for i using that by force
+  then have "z$i = 0" if "i<dim_vec as" for i using that sorry
   then show ?case using 1 z_dim unfolding gen_basis_svp_def by auto
 qed
+*)
 
 
 
@@ -239,61 +171,75 @@ qed
 
 
 
-
-text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
+text \<open>The Gap-SVP is NP-hard in l_infty.\<close>
 
 lemma well_defined_reduction: 
   assumes "(as, s) \<in> subset_sum"
-  shows "reduce_cvp_subset_sum (as, s) \<in> gap_cvp"
+  shows "reduce_svp_subset_sum (as, s) \<in> gap_svp"
 proof -
   obtain x where
     x_dim: "dim_vec x = dim_vec as" and
     x_binary: "\<forall>i<dim_vec x. x $ i \<in> {0, 1}" and 
     x_lin_combo: "x \<bullet> as = s" 
     using assms unfolding subset_sum_def by blast
-  define L where L_def: "L = fst (reduce_cvp_subset_sum (as, s))"
-  define b where b_def: "b = fst (snd (reduce_cvp_subset_sum (as, s)))"
-  define r where r_def: "r = snd (snd (reduce_cvp_subset_sum (as, s)))"
-  have "r = 1" by (simp add: r_def reduce_cvp_subset_sum_def Pair_inject prod.exhaust_sel)
-  (*have "(L,b,r) = reduce_cvp_subset_sum (as, s)" using L_def b_def r_def by auto*)
+  define L where L_def: "L = fst (reduce_svp_subset_sum (as, s))"
   define B where "B = gen_basis_svp as s"
-  define n where n_def: "n = dim_vec as"
-  have init_eq_goal: "B *\<^sub>v (real_of_int_vec x) - b = 
-    vec (n+2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  define v where "v = vec (dim_vec as + 1) (\<lambda>i. if i<dim_vec as then of_int (x $ i) else (-1::real))"
+  then have v_dim: "dim_vec v = dim_vec as + 1" by auto
+  have v_last: "v$(dim_vec as) = -1" unfolding v_def by auto  
+  have init_eq_goal: "B *\<^sub>v v = 
+    vec (dim_vec as + 1) (\<lambda> i. if i = 0 then 
+       (2 * (\<Sum>i<dim_vec as. of_int (x$i) * of_int (as$i)) - 2 * of_int s) 
+       else (2 * of_int (x$(i-1)) -1))"
     (is "?init_vec = ?goal_vec")
-  unfolding B_def b_def reduce_cvp_subset_sum_def
-  by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
-  have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
-    Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
-  unfolding B_def b_def reduce_cvp_subset_sum_def 
-  by (auto simp add: infnorm_Bx_s[OF x_dim[symmetric]] n_def)
-  also have  "\<dots> \<le> r"
+  unfolding B_def reduce_svp_subset_sum_def by (subst Bx_rewrite_real[OF v_dim], subst v_last)+
+     (intro eq_vecI, auto simp add: v_def)
+
+  have "infnorm (B *\<^sub>v v) = 
+    Max ({real_of_int \<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) - 2 * s\<bar>} \<union> 
+      {real_of_int \<bar>2 *(x$(i-1)) - 1\<bar> | i. 1<i \<and> i<dim_vec as + 1 })"
   proof -
-    have elem: "x$(i-2)\<in>{0,1}" if "1<i \<and> i<n+2" for i 
-      using that x_binary x_dim n_def
+    have "{\<bar>vec (Suc (dim_vec as))
+           (\<lambda>i. if i = 0 then 2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) -
+              2 * real_of_int s else 2 * real_of_int (x $ (i - 1)) - 1) $ i\<bar>
+             | i. i < Suc (dim_vec as)} = 
+      insert \<bar>2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) - 2 * real_of_int s\<bar>
+          {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. Suc 0 < i \<and> i < Suc (dim_vec as)}" 
+
+
+sorry
+
+
+    then show ?thesis by (subst init_eq_goal) (auto simp add: infnorm_def)
+  qed
+  also have  "\<dots> \<le> 1"
+  proof -
+    have elem: "x$(i-1)\<in>{0,1}" if "1<i \<and> i<dim_vec as+1" for i 
+      using that x_binary x_dim
       by (smt (verit) add_diff_cancel_right' diff_diff_left diff_less_mono2 
       less_add_same_cancel2 less_imp_add_positive less_one linorder_neqE_nat 
       nat_1_add_1 not_add_less2)
-    then have "\<bar>2*x$(i-2)-1\<bar> = 1" if "1<i \<and> i<n+2" for i 
+    then have "\<bar>2*x$(i-1)-1\<bar> = 1" if "1<i \<and> i<dim_vec as+1" for i 
       using elem[OF that] by auto
-    then have "{real_of_int \<bar>2 * x $ (i - 2) - 1\<bar> |i. 1 < i \<and> i < n + 2} \<subseteq> {1}" 
+    then have "{real_of_int \<bar>2 * x $ (i - 1) - 1\<bar> |i. 1 < i \<and> i < dim_vec as + 1} \<subseteq> {1}" 
       by (safe, auto)
-    then show ?thesis using x_lin_combo \<open>r=1\<close> by auto
+    moreover have "\<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) - 2 * s\<bar> = 0" 
+      using x_lin_combo unfolding scalar_prod_def using lessThan_atLeast0 by auto
+    ultimately show ?thesis by auto
   qed
-  finally have "infnorm (?init_vec) \<le> r" by blast
-  moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
+  finally have "infnorm (B *\<^sub>v v) \<le> 1" by blast
+  moreover have "B *\<^sub>v v\<in>L" 
   proof -
-    have "dim_vec x = dim_col (gen_basis_svp as s)" unfolding gen_basis_svp_def using x_dim by auto
+    have "dim_vec v = dim_col (gen_basis_svp as s)" unfolding gen_basis_svp_def using v_dim by auto
     then show ?thesis
-      unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
+      unfolding L_def reduce_svp_subset_sum_def gen_lattice_def B_def by auto
   qed
-  ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
-  have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis_svp[of as] by simp
-  have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
+  moreover have "B *\<^sub>v v \<noteq> 0\<^sub>v (dim_vec (B *\<^sub>v v))"
+  ultimately have witness: "\<exists>z\<in>L. infnorm z \<le> 1 \<and> z \<noteq> 0\<^sub>v (dim_vec z)" by auto
+  (* have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis_svp[of as] by simp *)
+  have L_lattice: "is_lattice L" unfolding L_def reduce_svp_subset_sum_def
     using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
-  show ?thesis unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
+  show ?thesis unfolding gap_svp_def using L_lattice witness L_def  by force
 qed
 
 lemma NP_hardness_reduction:
