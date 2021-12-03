@@ -10,8 +10,12 @@ text \<open>Subset Sum Problem\<close>
 
 definition subset_sum :: "((int vec) * int) set" where
   "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. 
-    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as) \<and> dim_vec as \<noteq> 0}"
+    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
 
+
+definition subset_sum_nonzero :: "((int vec) * int) set" where
+  "subset_sum_nonzero \<equiv> {(as,s). (\<exists>xs::int vec. 
+    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as) \<and> dim_vec as \<noteq> 0}"
 
 
 text \<open>Reduction Subset sum to partition problem.\<close>
