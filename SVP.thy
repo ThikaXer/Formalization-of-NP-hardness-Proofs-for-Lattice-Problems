@@ -184,7 +184,8 @@ proof -
     using assms unfolding subset_sum_def by blast
   define L where L_def: "L = fst (reduce_svp_subset_sum (as, s))"
   define B where "B = gen_basis_svp as s"
-  define v where "v = vec (dim_vec as + 1) (\<lambda>i. if i<dim_vec as then of_int (x $ i) else (-1::real))"
+  define v where "v = real_of_int_vec (
+      vec (dim_vec as + 1) (\<lambda>i. if i<dim_vec as then x $ i else -1))"
   then have v_dim: "dim_vec v = dim_vec as + 1" by auto
   have v_last: "v$(dim_vec as) = -1" unfolding v_def by auto  
   have init_eq_goal: "B *\<^sub>v v = 
@@ -197,31 +198,54 @@ proof -
 
   have "infnorm (B *\<^sub>v v) = 
     Max ({real_of_int \<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) - 2 * s\<bar>} \<union> 
-      {real_of_int \<bar>2 *(x$(i-1)) - 1\<bar> | i. 1<i \<and> i<dim_vec as + 1 })"
+      {real_of_int \<bar>2 *(x$(i-1)) - 1\<bar> | i. 1\<le>i \<and> i<dim_vec as + 1 })"
   proof -
-    have "{\<bar>vec (Suc (dim_vec as))
+    let ?v = "vec (Suc (dim_vec as))
            (\<lambda>i. if i = 0 then 2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) -
-              2 * real_of_int s else 2 * real_of_int (x $ (i - 1)) - 1) $ i\<bar>
-             | i. i < Suc (dim_vec as)} = 
+              2 * real_of_int s else 2 * real_of_int (x $ (i - 1)) - 1)"
+    have "dim_vec as > 0" using assms unfolding subset_sum_def by auto
+    then have "{i. i<dim_vec as +1} = {0} \<union> {i. i \<in> {1..<dim_vec as + 1}}" by auto
+    then have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = 
+      {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
+    proof -
+      have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = (\<lambda>i. \<bar>?v $ i\<bar>) ` {0..< Suc (dim_vec as)}"
+        using \<open>dim_vec as >0\<close> lessThan_atLeast0 by blast
+      also have "\<dots> = (\<lambda>i. \<bar>?v $ i\<bar>) ` ({0} \<union> {1..< Suc (dim_vec as)})"
+        by (simp add: atLeast0_lessThan_Suc_eq_insert_0)
+      also have "\<dots> = ((\<lambda>i. \<bar>?v $ i\<bar>) ` {0}) \<union> ((\<lambda>i. \<bar>?v $ i\<bar>) ` {1..< Suc (dim_vec as)})"
+        by blast
+      also have "\<dots> = {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
+        by blast
+      finally show ?thesis by blast
+    qed
+    also have "\<dots> = {\<bar>2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) - 
+        2 * real_of_int s\<bar>} \<union>
+        {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}"
+    proof -
+      have "?v $ i = 2 * real_of_int (x $ (i - Suc 0)) - 1" 
+        if "i \<in> {1..< Suc (dim_vec as)}" for i
+        using that by auto
+      then have "{\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}} = 
+        {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}" by force
+      then show ?thesis by auto
+    qed
+    also have "{\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}} = 
+       {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. 1 \<le> i \<and> i < Suc (dim_vec as)}" 
+      using atLeastLessThan_iff by blast
+    finally have "{\<bar>?v $ i\<bar>| i. i < Suc (dim_vec as)} = 
       insert \<bar>2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) - 2 * real_of_int s\<bar>
-          {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. Suc 0 < i \<and> i < Suc (dim_vec as)}" 
-
-
-sorry
-
-
+          {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. 1 \<le> i \<and> i < Suc (dim_vec as)}" 
+      by blast
     then show ?thesis by (subst init_eq_goal) (auto simp add: infnorm_def)
   qed
   also have  "\<dots> \<le> 1"
   proof -
-    have elem: "x$(i-1)\<in>{0,1}" if "1<i \<and> i<dim_vec as+1" for i 
+    have elem: "x$(i-1)\<in>{0,1}" if "1\<le>i \<and> i<dim_vec as+1" for i 
       using that x_binary x_dim
-      by (smt (verit) add_diff_cancel_right' diff_diff_left diff_less_mono2 
-      less_add_same_cancel2 less_imp_add_positive less_one linorder_neqE_nat 
-      nat_1_add_1 not_add_less2)
-    then have "\<bar>2*x$(i-1)-1\<bar> = 1" if "1<i \<and> i<dim_vec as+1" for i 
+      by (metis One_nat_def Suc_eq_plus1 Suc_le_mono Suc_pred less_eq_Suc_le)
+    then have "\<bar>2*x$(i-1)-1\<bar> = 1" if "1\<le>i \<and> i<dim_vec as+1" for i 
       using elem[OF that] by auto
-    then have "{real_of_int \<bar>2 * x $ (i - 1) - 1\<bar> |i. 1 < i \<and> i < dim_vec as + 1} \<subseteq> {1}" 
+    then have "{real_of_int \<bar>2 * x $ (i - 1) - 1\<bar> |i. 1 \<le> i \<and> i < dim_vec as + 1} \<subseteq> {1}" 
       by (safe, auto)
     moreover have "\<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) - 2 * s\<bar> = 0" 
       using x_lin_combo unfolding scalar_prod_def using lessThan_atLeast0 by auto
@@ -232,14 +256,36 @@ sorry
   proof -
     have "dim_vec v = dim_col (gen_basis_svp as s)" unfolding gen_basis_svp_def using v_dim by auto
     then show ?thesis
-      unfolding L_def reduce_svp_subset_sum_def gen_lattice_def B_def by auto
+      unfolding L_def reduce_svp_subset_sum_def v_def gen_lattice_def B_def by auto
   qed
   moreover have "B *\<^sub>v v \<noteq> 0\<^sub>v (dim_vec (B *\<^sub>v v))"
+  proof - 
+    have "dim_vec as \<noteq> 0" using assms unfolding subset_sum_def by simp
+    then have "dim_vec as > 0" by auto
+    then have elem: "?goal_vec $ 1 = 2 * real_of_int (x $ 0) - 1" by simp
+    then have "(B *\<^sub>v v)$1 \<noteq> 0" by (subst init_eq_goal, subst elem)
+      (use \<open>0 < dim_vec as\<close> x_dim x_binary in \<open>fastforce\<close>)
+    moreover have "0\<^sub>v (dim_vec (B *\<^sub>v v)) $ 1 = 0" 
+      using \<open>dim_vec as > 0\<close> index_zero_vec(1)[of "1" "dim_vec as + 1" ] 
+      by (subst init_eq_goal) auto
+    ultimately show ?thesis by auto
+  qed
   ultimately have witness: "\<exists>z\<in>L. infnorm z \<le> 1 \<and> z \<noteq> 0\<^sub>v (dim_vec z)" by auto
-  (* have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis_svp[of as] by simp *)
+  have int_mat: "\<exists>B'::int mat. B = real_of_int_mat B'"
+  proof -
+    define B' where "B' = mat (dim_vec as + 1) (dim_vec as + 1)
+          (\<lambda>x. (case x of (i, j) \<Rightarrow>
+             if i = 0 then if j < dim_vec as then 2 * as $ j else 2 * s
+             else if j = dim_vec as then 1 else if i = j + 1 then 2 else 0))"
+    then have "real_of_int_mat B' = B" using real_of_int_mat_mat 
+      unfolding B_def gen_basis_svp_def by auto
+    then show ?thesis  by auto
+  qed
   have L_lattice: "is_lattice L" unfolding L_def reduce_svp_subset_sum_def
-    using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
-  show ?thesis unfolding gap_svp_def using L_lattice witness L_def  by force
+    using is_lattice_gen_lattice_int[OF int_mat] unfolding B_def by auto
+  show ?thesis unfolding gap_svp_def 
+    using L_lattice witness L_def
+    by (metis (mono_tags, lifting) fstI mem_Collect_eq old.prod.case reduce_svp_subset_sum_def)
 qed
 
 lemma NP_hardness_reduction:
