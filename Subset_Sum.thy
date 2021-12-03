@@ -10,7 +10,7 @@ text \<open>Subset Sum Problem\<close>
 
 definition subset_sum :: "((int vec) * int) set" where
   "subset_sum \<equiv> {(as,s). (\<exists>xs::int vec. 
-    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as)}"
+    (\<forall>i<dim_vec xs. xs$i \<in> {0,1}) \<and> xs \<bullet> as = s \<and> dim_vec xs = dim_vec as) \<and> dim_vec as \<noteq> 0}"
 
 
 
