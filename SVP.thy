@@ -120,6 +120,76 @@ lemma Bx_rewrite:
 using Bx_rewrite_real[of "real_of_int_vec x"] assms by auto
 
 
+lemma infnorm_gen_basis_svp_real:
+  assumes "dim_vec x = dim_vec as + 1" "dim_vec as > 0"
+  shows "infnorm ((gen_basis_svp as s) *\<^sub>v x) =
+         Max ({\<bar>2 * (\<Sum>i<dim_vec as. x $ i * of_int (as $ i)) + 2 * x $ (dim_vec as) * of_int s\<bar>} \<union>
+              {\<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> | i. i \<in> {1..<dim_vec as +1}})"
+proof -
+  let ?v = "vec (dim_vec as + 1) (\<lambda>i. if i = 0
+                 then 2 * (\<Sum>i<dim_vec as. x $ i * real_of_int (as $ i)) +
+                      2 * x $ dim_vec as * real_of_int s
+                 else 2 * x $ (i - 1) + x $ dim_vec as)"
+  have "dim_vec as > 0" using assms unfolding subset_sum_nonzero_def by auto
+  then have "{i. i<dim_vec as +1} = {0} \<union> {i. i \<in> {1..<dim_vec as + 1}}" by auto
+  then have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = 
+    {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
+  proof -
+    have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = (\<lambda>i. \<bar>?v $ i\<bar>) ` {0..< Suc (dim_vec as)}"
+      using \<open>dim_vec as >0\<close> lessThan_atLeast0 by blast
+    also have "\<dots> = (\<lambda>i. \<bar>?v $ i\<bar>) ` ({0} \<union> {1..< Suc (dim_vec as)})"
+      by (simp add: atLeast0_lessThan_Suc_eq_insert_0)
+    also have "\<dots> = ((\<lambda>i. \<bar>?v $ i\<bar>) ` {0}) \<union> ((\<lambda>i. \<bar>?v $ i\<bar>) ` {1..< Suc (dim_vec as)})"
+      by blast
+    also have "\<dots> = {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
+      by blast
+    finally show ?thesis by blast
+  qed
+  also have "\<dots> = {\<bar>2 * (\<Sum>i<dim_vec as. x $ i * of_int (as $ i)) + 
+          2 * x $ (dim_vec as) * of_int s\<bar>} \<union>
+      {\<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}"
+  proof -
+    have "?v $ i = 2 * x$(i-1) + x$(dim_vec as)" 
+      if "i \<in> {1..< Suc (dim_vec as)}" for i
+      using that by auto
+    then have "{\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}} = 
+      {\<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}" by force
+    then show ?thesis by auto
+  qed
+  also have "{\<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> |i. i \<in> {1..< Suc (dim_vec as)}} = 
+     {\<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> |i. 1 \<le> i \<and> i < Suc (dim_vec as)}" 
+    using atLeastLessThan_iff by blast
+  finally have set_eq: "{\<bar>?v $ i\<bar> | i. i < dim_vec (gen_basis_svp as s *\<^sub>v x)} =
+    {\<bar>2 * (\<Sum>i<dim_vec as. x $ i * real_of_int (as $ i)) + 2 * x $ dim_vec as * real_of_int s\<bar>} \<union>
+    {\<bar>2 * x $ (i - 1) + x $ dim_vec as\<bar> |i. i \<in> {1..<dim_vec as + 1}}"
+    unfolding gen_basis_svp_def by auto
+  then show ?thesis unfolding infnorm_def by (subst Bx_rewrite_real[OF assms(1)] set_eq, auto)
+qed
+
+
+lemma infnorm_gen_basis_svp:
+  assumes "dim_vec x = dim_vec as + 1" "dim_vec as > 0"
+  shows "infnorm ((gen_basis_svp as s) *\<^sub>v (real_of_int_vec x)) =
+         Max ({real_of_int \<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) + 2 * x $ (dim_vec as) * s\<bar>} \<union>
+              {real_of_int \<bar>2 * x$(i-1) + x$(dim_vec as)\<bar> | i. i \<in> {1..<dim_vec as +1}})"
+proof -
+  have "real_of_int_vec x $ (i - Suc 0) = real_of_int (x $ (i - Suc 0))" 
+    if "Suc 0 \<le> i \<and> i < Suc (dim_vec as)" for i using that real_of_int_vec_nth[of i]
+    using assms(1) by force
+  then have "{\<bar>2 * real_of_int_vec x $ (i - Suc 0) + real_of_int (x $ dim_vec as)\<bar> |i.
+           Suc 0 \<le> i \<and> i < Suc (dim_vec as)} = 
+        {\<bar>2 * real_of_int (x $ (i - Suc 0)) + real_of_int (x $ dim_vec as)\<bar> |i.
+           Suc 0 \<le> i \<and> i < Suc (dim_vec as)}"
+  by force
+  then show ?thesis using assms by (subst infnorm_gen_basis_svp_real, auto)
+qed
+
+
+
+lemma mat_mult_zero:
+  assumes "dim_col A = n" "dim_row A = m"
+  shows "A *\<^sub>v 0\<^sub>v n = 0\<^sub>v m"
+using assms by auto
 
 
 (*
@@ -172,6 +242,8 @@ proof -
   define v where "v = real_of_int_vec (
       vec (dim_vec as + 1) (\<lambda>i. if i<dim_vec as then x $ i else -1))"
   then have v_dim: "dim_vec v = dim_vec as + 1" by auto
+  have v_upto_last: " v $ i = x $ i" if "i< dim_vec as" for i 
+    using v_dim v_def real_of_int_vec_nth[OF that] that by auto
   have v_last: "v$(dim_vec as) = -1" unfolding v_def by auto  
   have init_eq_goal: "B *\<^sub>v v = 
     vec (dim_vec as + 1) (\<lambda> i. if i = 0 then 
@@ -181,47 +253,21 @@ proof -
   unfolding B_def reduce_svp_subset_sum_def by (subst Bx_rewrite_real[OF v_dim], subst v_last)+
      (intro eq_vecI, auto simp add: v_def)
 
+
+  have "dim_vec as > 0" using assms unfolding subset_sum_nonzero_def by auto
   have "infnorm (B *\<^sub>v v) = 
     Max ({real_of_int \<bar>2 * (\<Sum>i<dim_vec as. x $ i * as $ i) - 2 * s\<bar>} \<union> 
       {real_of_int \<bar>2 *(x$(i-1)) - 1\<bar> | i. 1\<le>i \<and> i<dim_vec as + 1 })"
   proof -
-    let ?v = "vec (Suc (dim_vec as))
-           (\<lambda>i. if i = 0 then 2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) -
-              2 * real_of_int s else 2 * real_of_int (x $ (i - 1)) - 1)"
-    have "dim_vec as > 0" using assms unfolding subset_sum_nonzero_def by auto
-    then have "{i. i<dim_vec as +1} = {0} \<union> {i. i \<in> {1..<dim_vec as + 1}}" by auto
-    then have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = 
-      {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
-    proof -
-      have "{\<bar>?v $ i\<bar> | i. i < Suc (dim_vec as)} = (\<lambda>i. \<bar>?v $ i\<bar>) ` {0..< Suc (dim_vec as)}"
-        using \<open>dim_vec as >0\<close> lessThan_atLeast0 by blast
-      also have "\<dots> = (\<lambda>i. \<bar>?v $ i\<bar>) ` ({0} \<union> {1..< Suc (dim_vec as)})"
-        by (simp add: atLeast0_lessThan_Suc_eq_insert_0)
-      also have "\<dots> = ((\<lambda>i. \<bar>?v $ i\<bar>) ` {0}) \<union> ((\<lambda>i. \<bar>?v $ i\<bar>) ` {1..< Suc (dim_vec as)})"
-        by blast
-      also have "\<dots> = {\<bar>?v $ 0\<bar>} \<union> {\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}}"
-        by blast
-      finally show ?thesis by blast
-    qed
-    also have "\<dots> = {\<bar>2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) - 
-        2 * real_of_int s\<bar>} \<union>
-        {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}"
-    proof -
-      have "?v $ i = 2 * real_of_int (x $ (i - Suc 0)) - 1" 
-        if "i \<in> {1..< Suc (dim_vec as)}" for i
-        using that by auto
-      then have "{\<bar>?v $ i\<bar> | i. i \<in> {1..< Suc (dim_vec as)}} = 
-        {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}}" by force
-      then show ?thesis by auto
-    qed
-    also have "{\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. i \<in> {1..< Suc (dim_vec as)}} = 
-       {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. 1 \<le> i \<and> i < Suc (dim_vec as)}" 
-      using atLeastLessThan_iff by blast
-    finally have "{\<bar>?v $ i\<bar>| i. i < Suc (dim_vec as)} = 
-      insert \<bar>2 * (\<Sum>i<dim_vec as. real_of_int (x $ i) * real_of_int (as $ i)) - 2 * real_of_int s\<bar>
-          {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. 1 \<le> i \<and> i < Suc (dim_vec as)}" 
-      by blast
-    then show ?thesis by (subst init_eq_goal) (auto simp add: infnorm_def)
+    have "vec (Suc (dim_vec as)) (\<lambda>i. if i < dim_vec as then x $ i else - 1) $ (i - Suc 0) 
+      = x $ (i - Suc 0)" if "Suc 0 \<le> i \<and> i < Suc (dim_vec as)" for i
+      using that v_upto_last by auto
+    then have "{\<bar>2 * real_of_int (vec (Suc (dim_vec as)) (\<lambda>i. if i < dim_vec as then x $ i else - 1)
+         $ (i - Suc 0)) - 1\<bar> | i. Suc 0 \<le> i \<and> i < Suc (dim_vec as)} = 
+        {\<bar>2 * real_of_int (x $ (i - Suc 0)) - 1\<bar> |i. Suc 0 \<le> i \<and> i < Suc (dim_vec as)}"
+       by force
+    then show ?thesis unfolding B_def v_def by (subst infnorm_gen_basis_svp[OF _ \<open>dim_vec as >0\<close>]) 
+      (auto simp add: v_last v_upto_last)
   qed
   also have  "\<dots> \<le> 1"
   proof -
@@ -299,27 +345,55 @@ proof -
   using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_svp_def by auto
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
     and zs_dim: "dim_vec zs = dim_vec as + 1" by blast
+
+  define x::"int vec" where "x = vec n (($) zs)"
+
   have init_eq_goal: "v = 
     vec (n+1) (\<lambda> i. if i = 0 
       then real_of_int (2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s)
       else real_of_int (2 * zs $ (i - 1) + zs $ dim_vec as))"
     (is "?init_vec = ?goal_vec")
   unfolding v_def B_def using Bx_rewrite[OF zs_dim] n_def by simp
+
+  have "dim_vec as > 0" sorry
+
   have infnorm_ineq: "infnorm (v) = 
     Max ({real_of_int \<bar>2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s\<bar>} \<union> 
          {real_of_int \<bar>2 * zs $ (i - 1) + zs $ dim_vec as\<bar> | i. 1\<le>i \<and> i<n+1 })"
-  unfolding v_def B_def sorry
-
+    unfolding v_def B_def n_def using zs_dim \<open>dim_vec as > 0\<close> 
+    by (subst infnorm_gen_basis_svp, auto)
   also have Max_le_1: "\<dots> \<le> 1"
-  using ineq by (subst infnorm_ineq[symmetric])
-  have "\<bar>2 * zs $ (i - 1) + zs $ dim_vec as\<bar>\<le>1" if "1\<le>i \<and> i<n+1" for i using Max_le_1 that by auto
+    using ineq by (subst infnorm_ineq[symmetric])
+  have "\<bar>2 * zs $ (i - 1) + zs $ dim_vec as\<bar>\<le>1" if "1\<le>i \<and> i<n+1" for i 
+    using Max_le_1 that by auto
+  then have first_le_1: "\<bar>2 * zs $ i + zs $ dim_vec as\<bar>\<le>1" if "i<n" for i using that
+    by (metis Suc_eq_plus1 Suc_less_eq diff_add_inverse2 le_add2)
+  have "zs $ dim_vec as \<noteq> 0"
+  proof (rule ccontr, goal_cases)
+    case 1
+    then have "zs $ i = 0" if "i<n" for i 
+      using first_le_1[OF that] by auto
+    then have zs_zero: "zs = 0\<^sub>v (dim_vec zs)" using 1 zs_dim n_def 
+      by (metis Suc_eq_plus1 eq_vecI index_zero_vec(1) index_zero_vec(2) less_Suc_eq)
+    have "v = 0\<^sub>v (dim_vec v)" unfolding v_def by (subst zs_zero, simp, subst mat_mult_zero)
+      (use B_def gen_basis_svp_def zs_dim in \<open>auto\<close>)
+    then show ?case using nonzero by simp
+  qed
+  
+
+find_theorems "_*\<^sub>v _ = 0\<^sub>v _ "
+
+
+  have "\<bar>2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s\<bar>\<le>1"sorry
 
 
 
 
-  then have "\<forall>i<n. zs $ i \<in> {0, 1}" by simp 
-  moreover have "zs \<bullet> as = s" using Max_le_1 by auto
-  ultimately have "(\<forall>i<dim_vec zs. zs $ i \<in> {0, 1}) \<and> zs \<bullet> as = s \<and> dim_vec zs = dim_vec as"
+
+
+  then have "\<forall>i<n. x $ i \<in> {0, 1}" by simp 
+  moreover have "x \<bullet> as = s" using Max_le_1 by auto
+  ultimately have "(\<forall>i<dim_vec x. x $ i \<in> {0, 1}) \<and> x \<bullet> as = s \<and> dim_vec x = dim_vec as"
      using zs_dim n_def by auto
   then show ?thesis unfolding subset_sum_def gap_cvp_def by auto
 qed

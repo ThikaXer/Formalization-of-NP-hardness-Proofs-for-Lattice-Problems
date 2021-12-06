@@ -71,6 +71,10 @@ lemma real_of_int_vec_vec:
   "real_of_int_vec (vec n f) = vec n (real_of_int \<circ> f)"
 by (auto simp add: real_of_int_vec_def)
 
+lemma real_of_int_vec_zero[simp]:
+  "real_of_int_vec (0\<^sub>v n) = 0\<^sub>v n"
+unfolding real_of_int_vec_def by auto
+
 
 text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
   Lattices can be represented by a basis, multiple bases can represent the same lattice.\<close>
