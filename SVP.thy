@@ -346,7 +346,7 @@ proof -
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
     and zs_dim: "dim_vec zs = dim_vec as + 1" by blast
 
-  define x::"int vec" where "x = vec n (($) zs)"
+  define x::"int vec" where "x = (if zs$ (dim_vec as) > 0 then - vec n (($) zs) else vec n (($) zs))"
 
   have init_eq_goal: "v = 
     vec (n+1) (\<lambda> i. if i = 0 
@@ -381,10 +381,15 @@ proof -
   qed
   
 
-find_theorems "_*\<^sub>v _ = 0\<^sub>v _ "
 
+  have "real_of_int \<bar>2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s\<bar> \<le> 1" 
+    using Max_le_1 Max_ge by auto
+  then have "\<bar>2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s\<bar> \<le> 1"
+    using of_int_le_1_iff by blast
+  then have "\<bar>(\<Sum>i<dim_vec as. zs $ i * as $ i) + zs $ dim_vec as * s\<bar> = 0" by linarith
+  
 
-  have "\<bar>2 * (\<Sum>i<dim_vec as. zs $ i * as $ i) + 2 * zs $ dim_vec as * s\<bar>\<le>1"sorry
+sorry
 
 
 

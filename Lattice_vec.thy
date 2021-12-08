@@ -75,6 +75,28 @@ lemma real_of_int_vec_zero[simp]:
   "real_of_int_vec (0\<^sub>v n) = 0\<^sub>v n"
 unfolding real_of_int_vec_def by auto
 
+text \<open>General of_int operation for vectors (= of_int_hom.vec_hom)\<close>
+
+definition of_int_vec :: "int vec \<Rightarrow> ('a::ring_1) vec"  where
+  "of_int_vec v = map_vec of_int v"
+
+lemma[simp]: "dim_vec (of_int_vec v) = dim_vec v" 
+  unfolding of_int_vec_def by auto
+
+lemma of_int_vec_nth[simp, intro]: 
+  "i<dim_vec v \<Longrightarrow> (of_int_vec v) $ i = of_int (v$i)"
+by (simp add: of_int_vec_def)
+
+lemma of_int_vec_vec:
+  "of_int_vec (vec n f) = vec n (of_int \<circ> f)"
+by (auto simp add: of_int_vec_def)
+
+lemma of_int_vec_zero[simp]:
+  "of_int_vec (0\<^sub>v n) = 0\<^sub>v n"
+unfolding of_int_vec_def by auto
+
+text \<open>General of_rat operation\<close>
+
 
 text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
   Lattices can be represented by a basis, multiple bases can represent the same lattice.\<close>

@@ -371,4 +371,76 @@ eNorm (\<LL> \<infinity> M) f
 *)
 
 
+
+text \<open>Polynomial time evaluation\<close>
+
+text \<open>Only use countable sets (real => rat)\<close>
+definition gen_basis_1 :: "int vec \<Rightarrow> rat mat" where
+  "gen_basis_1 as = mat (dim_vec as + 2) (dim_vec as) (\<lambda> (i, j). if i \<in> {0,1} then of_int (as$j) 
+    else (if i = j + 2 then 2 else 0))"
+
+definition gen_t_1 :: "int vec \<Rightarrow> int \<Rightarrow> rat vec" where
+  "gen_t_1 as s = vec (dim_vec as + 2) ((\<lambda> i. 1)(0:= of_int s + 1, 1:= of_int s - 1))"
+
+definition reduce_cvp_subset_sum_1 :: 
+  "((int vec) * int) \<Rightarrow> ((rat mat) * (rat vec) * rat)" where
+  "reduce_cvp_subset_sum_1 \<equiv> (\<lambda> (as,s).
+    (gen_basis_1 as, gen_t_1 as s, (1::rat)))"
+
+lemma "of_rat_hom.mat_hom (gen_basis_1 as) = gen_basis as"
+sorry
+
+lemma "of_rat_hom.vec_hom (gen_t_1 as s) = gen_t as s"
+sorry
+
+lemma "reduce_cvp_subset_sum (as, s) = 
+        (gen_lattice (of_rat_hom.mat_hom (fst (reduce_cvp_subset_sum_1 (as, s)))),
+         of_rat_hom.vec_hom (fst (snd (reduce_cvp_subset_sum_1 (as, s)))),
+         of_rat (snd (snd (reduce_cvp_subset_sum_1 (as, s)))))"
+sorry
+
+
+text \<open>Use lists instead of vectors and matrices\<close>
+definition gen_basis_2 :: "int list \<Rightarrow> rat list list" where
+  "gen_basis_2 as = mat_to_list (mat (length as + 2) (length as) 
+    (\<lambda> (i, j). if i \<in> {0,1} then of_int (as!j) 
+    else (if i = j + 2 then 2 else 0)))"
+
+definition gen_t_2 :: "int list \<Rightarrow> int \<Rightarrow> rat list" where
+  "gen_t_2 as s = list_of_vec (vec (length as + 2) ((\<lambda> i. 1)(0:= of_int s + 1, 1:= of_int s - 1)))"
+
+definition reduce_cvp_subset_sum_2 :: 
+  "((int list) * int) \<Rightarrow> ((rat list list) * (rat list) * rat)" where
+  "reduce_cvp_subset_sum_2 \<equiv> (\<lambda> (as,s).
+    (gen_basis_2 as, gen_t_2 as s, (1::rat)))"
+
+(*All lists corresponding to rows (or columns?) of matrix have the same length*)
+lemma "is_singleton (set (map length (gen_basis_2 (list_of_vec as))))"
+sorry
+
+definition mat_of_list :: "'a list list \<Rightarrow> 'a mat" where
+  "mat_of_list as = mat (length as) (THE x. {x} = set (map length as)) (\<lambda> (i,j). (as!j)!i)"
+
+lemma "gen_basis_1 as = mat_of_list (gen_basis_2 (list_of_vec as))"
+sorry
+
+lemma "gen_t_1 as s = vec_of_list (gen_t_2 (list_of_vec as) s)"
+sorry
+
+lemma "reduce_cvp_subset_sum_1 (as,s) = (
+        mat_of_list (fst (reduce_cvp_subset_sum_2 (list_of_vec as,s))),
+        vec_of_list (fst (snd (reduce_cvp_subset_sum_2 (list_of_vec as,s)))),
+        snd (snd (reduce_cvp_subset_sum_2 (list_of_vec as,s))))"
+sorry
+
+text \<open>Function as tail recursion\<close>
+definition gen_basis_3 :: "int list \<Rightarrow> rat list list" where
+  "gen_basis_3 as = "
+
+definition reduce_cvp_subset_sum_3 :: 
+  "((int list) * int) \<Rightarrow> ((rat list list) * (rat list) * rat)" where
+  "reduce_cvp_subset_sum_3 \<equiv> (\<lambda> (as,s).
+    (gen_basis_3 as, (of_int s) # (replicate (length as) 1), (1::rat)))"
+
+
 end
