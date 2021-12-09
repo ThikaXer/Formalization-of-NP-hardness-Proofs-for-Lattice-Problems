@@ -26,8 +26,8 @@ definition subset_sum_list :: "((int list) * int) set" where
 text \<open>Reduction Subset sum to partition problem.\<close>
 
 definition reduce_subset_sum_partition:: "(int list) \<Rightarrow> ((int list) * int)" where
-  "reduce_subset_sum_partition \<equiv> (\<lambda> a. (a, (sum_list a) div 2))"
-
+  "reduce_subset_sum_partition \<equiv> 
+    (\<lambda> a. (a, (if sum_list a mod 2 = 0 then sum_list a div 2 else (\<Sum>i<length a. \<bar>a!i\<bar>) + 1)))"
 
 
 text \<open>Lemmas for proof\<close>
@@ -68,18 +68,38 @@ using assms proof (induct n arbitrary: I)
   then have eq: "xs ! i = xs' ! i" if "i<n" for i using that
     by (simp add: nth_append xs'_def)+
   then have "(\<forall>i\<in>I. xs ! i = 1) \<and> (\<forall>i\<in>{0..<Suc n} - I. xs ! i = 0) \<and> length xs = Suc n" 
-  apply (auto simp add: xs'_def I'_def Suc xs_def)
-  subgoal 
-  by (metis I'_def Int_iff Suc.prems atLeast0LessThan atLeast0_lessThan_Suc insert_iff lessThan_iff nth_append_length subset_eq xs'_def)
-  subgoal 
-  by (metis Diff_iff I'_def Int_iff atLeast0LessThan lessThan_iff less_Suc_eq xs'_def)
-  subgoal 
-  by (metis I'_def Int_iff Suc.prems atLeastLessThan_iff less_Suc_eq subset_eq xs'_def)
-  subgoal
-  by (metis Diff_iff I'_def Int_iff atLeast0LessThan lessThan_iff less_Suc_eq nth_append_length xs'_def)
-  done
+  proof (auto simp add: xs'_def I'_def Suc xs_def, goal_cases)
+    case (1 i)
+    then show ?case 
+      by (metis I'_def Int_iff Suc.prems atLeast0LessThan atLeast0_lessThan_Suc
+         insert_iff lessThan_iff nth_append_length subset_eq xs'_def)
+  next
+    case (2 i)
+    then show ?case 
+      by (metis Diff_iff I'_def Int_iff atLeast0LessThan lessThan_iff less_Suc_eq xs'_def)
+  next
+    case (3 i)
+    then show ?case 
+      by (metis I'_def Int_iff Suc.prems atLeastLessThan_iff less_Suc_eq subset_eq xs'_def)
+  next
+    case (4 i)
+    then show ?case by (metis Diff_iff I'_def Int_iff atLeast0LessThan lessThan_iff 
+      less_Suc_eq nth_append_length xs'_def)
+  qed
   then show ?case by (subst exI, auto)
 qed auto
+
+lemma sum_list_even:
+  assumes "a \<in> partition_problem"
+  shows "sum_list a mod 2 = 0"
+using assms unfolding partition_problem_def
+proof (safe, goal_cases)
+  case (1 I)
+  then have "sum ((!) a) {0..<length a} = sum ((!) a) I + sum ((!) a) ({0..<length a} - I)"
+    by (metis finite_atLeastLessThan sum.subset_diff)
+  then have "sum ((!) a) {0..<length a} = 2 * sum ((!) a) I" using 1 by auto
+  then show ?case by (simp add: sum_list_sum_nth)
+qed
 
 lemma well_defined_reduction_subset_sum:
   assumes "a \<in> partition_problem"
@@ -87,6 +107,10 @@ lemma well_defined_reduction_subset_sum:
 using assms unfolding partition_problem_def reduce_subset_sum_partition_def subset_sum_list_def Let_def
 proof (safe, goal_cases)
   case (1 I)
+  have sum_even: "sum_list a mod 2 = 0" using sum_list_even[OF assms] by auto
+  then have if_rewrite: 
+    "(if sum_list a mod 2 = 0 then sum_list a div 2 else (\<Sum>i<length a. \<bar>a!i\<bar>) + 1) = 
+    sum_list a div 2" by auto
   have split_set: "{0..<length a} = I \<union> ({0..<length a}-I)"
     using 1(1) by (subst Un_Diff_cancel, auto)
   have disjoint: "I \<inter> ({0..<length a}-I) = {}" by auto
@@ -105,7 +129,7 @@ proof (safe, goal_cases)
   also have "\<dots> = 2 * (sum_list (map2 (*) a xs))" using eq xs_prop by (subst sum_list_map_2, auto)
   finally have "sum_list (map2 (*) a xs) = (sum_list a) div 2" by simp
   then show ?case using xs_prop sum_list_map_2 \<open>2 * sum ((!) a) I = 2 * sum_list (map2 (*) a xs)\<close> eq
-    by (subst exI[of _ xs], auto)
+    by (subst exI[of _ xs], auto simp add: if_rewrite)
 qed
 
 
@@ -119,29 +143,34 @@ lemma NP_hardness_reduction_subset_sum:
 using assms unfolding partition_problem_def reduce_subset_sum_partition_def subset_sum_list_def Let_def
 proof (safe, goal_cases)
   case (1 xs)
-  have "(sum_list a) mod 2 = 0" using 1 sledgehammer sorry
+  have "(sum_list a) mod 2 = 0" using 1
+  proof -
+    have "(\<Sum>i<length a. a ! i * xs ! i) \<le> (\<Sum>i<length a. \<bar>a!i\<bar>)" using 1 by (subst sum_mono, auto)
+    then have "(\<Sum>i<length a. a ! i * xs ! i) \<noteq> (\<Sum>i<length a. \<bar>a!i\<bar>) + 1" by auto
+    then show ?thesis using 1 by presburger
+  qed
   obtain I where I_prop: "I = {i. i< length xs \<and> xs!i = 1}" by blast
   then have split_set: "{0..<length a} = I \<union> ({0..<length a}-I)"
     using I_prop 1 by (subst Un_Diff_cancel, auto)
   have "I\<subseteq>{0..<length a}" using I_prop 1 by auto
   moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)"
   proof - 
-    have eq: "(\<Sum>i\<in>I. a!i) = (\<Sum>i<length a. a!i * xs!i)" using split_set  I_prop 1
+    have eq: "(\<Sum>i\<in>I. a!i) = (\<Sum>i<length a. a!i * xs!i)" using split_set  I_prop 1 
       by (smt (verit, ccfv_threshold) Diff_iff \<open>I \<subseteq> {0..<length a}\<close> atLeast0LessThan 
       atLeastLessThan_iff empty_iff finite_atLeastLessThan insert_iff mem_Collect_eq 
       mult_cancel_left2 mult_cancel_right2 sum.cong sum.mono_neutral_right)
     have "(\<Sum>i\<in>{0..<length a}-I. a!i) = sum ((!) a) {0..<length a} - (\<Sum>i\<in>I. a!i)" using split_set 
       by (meson \<open>I \<subseteq> {0..<length a}\<close> finite_atLeastLessThan sum_diff)
     also have "\<dots> = sum_list a - sum_list a div 2"
-      by (metis "1"(2) eq sum_list_sum_nth)
+    by (metis "1"(2) \<open>sum_list a mod 2 = 0\<close> eq sum_list_sum_nth)
     also have "\<dots> = sum_list a div 2" using \<open>(sum_list a) mod 2 = 0\<close> by auto
-    finally have "(\<Sum>i\<in>{0..<length a}-I. a!i) = (\<Sum>i\<in>I. a!i)" sorry
+    finally have "(\<Sum>i\<in>{0..<length a}-I. a!i) = (\<Sum>i\<in>I. a!i)"
+      using "1"(2) \<open>sum_list a mod 2 = 0\<close> eq by presburger
     then show ?thesis by auto
   qed    
   ultimately show ?case by (subst exI, auto)
 qed
 
-find_theorems sum_list
 
 
 text \<open>The Gap-SVP is NP-hard.\<close>
