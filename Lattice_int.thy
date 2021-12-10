@@ -96,7 +96,7 @@ by (auto simp add: real_of_int_mat_def)
 
 text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
   Lattices can be represented by a basis, multiple bases can represent the same lattice.\<close>
-type_synonym lattice = "int vec set"
+type_synonym int_lattice = "int vec set"
 
 
 text \<open>A lattice basis is a linearly independent set of vectors whose integer span is the lattice.\<close>
@@ -114,13 +114,13 @@ definition is_indep :: "int mat \<Rightarrow> bool" where
     \<longrightarrow> z = 0\<^sub>v (dim_vec z))"
 
 (*L is integer span of B and vectors in B are linearly independent*)
-definition is_lattice :: "lattice \<Rightarrow> bool" where
+definition is_lattice :: "int_lattice \<Rightarrow> bool" where
   "is_lattice L \<equiv> (\<exists>B::(int mat). 
     L = {B *\<^sub>v z | z::int vec. dim_vec z = dim_col B} 
     \<and> is_indep B)"
 
 text \<open>The dimension of the lattice is the same for all possible bases -> Show this!\<close>
-definition dim_lattice :: "lattice \<Rightarrow> nat" where
+definition dim_lattice :: "int_lattice \<Rightarrow> nat" where
   "dim_lattice L = todo"
 
 

@@ -9,12 +9,12 @@ begin
 text \<open>The reduction of SVP to CVP in $l_\infty$ norm\<close>
 
 text \<open>The shortest vector problem.\<close>
-definition is_shortest_vec :: "lattice  \<Rightarrow> int vec \<Rightarrow> bool" where
+definition is_shortest_vec :: "int_lattice  \<Rightarrow> int vec \<Rightarrow> bool" where
   "is_shortest_vec L v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. infnorm x \<ge> infnorm v \<and> v\<in>L) "
 
 
 text \<open>The decision problem associated with solving SVP exactly.\<close>
-definition gap_svp :: "(lattice \<times> int) set" where
+definition gap_svp :: "(int_lattice \<times> int) set" where
   "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm v \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
 
 text \<open>Generate a lattice to solve SVP for reduction\<close>
@@ -34,7 +34,7 @@ definition gen_svp_basis :: "int vec \<Rightarrow> int \<Rightarrow> int mat" wh
 
 
 text \<open>Reduction SVP to bounded homogeneous linear equation problem in $l_\infty$ norm.\<close>
-definition reduce_svp_bhle:: "(int vec \<times> int) \<Rightarrow> (lattice \<times> int)" where
+definition reduce_svp_bhle:: "(int vec \<times> int) \<Rightarrow> (int_lattice \<times> int)" where
   "reduce_svp_bhle \<equiv> (\<lambda> (a, k). (gen_lattice (gen_svp_basis a k), k))"
 
 
@@ -312,6 +312,9 @@ next
       using 1(3) dim_v_dim_a that unfolding infnorm_def
       using Max_le_iff[of "{\<bar>v $ i\<bar> |i. i < dim_vec v}" k]
       by fastforce
+    then have z_le_k: "\<bar>z $ i\<bar> \<le> k" if "i< dim_vec a" for i
+      using v_eq_z_upto_last[OF that] that
+      by (metis less_add_one less_trans)
 
     have v_last_zero: "v$(dim_vec a) = 0"
     proof (rule ccontr)
@@ -356,31 +359,81 @@ next
         then show ?thesis using v_le_k[of "dim_vec a"] by auto
       next
         case both
-        then have "(\<Sum>i = 0..<dim_vec a. z $ i * a $ i) \<noteq> 0" by auto
-        then have "\<bar>\<Sum>i = 0..<dim_vec a. z $ i * a $ i\<bar> \<ge> 1" by auto
-        then have "k < \<bar>(k + 1) * (\<Sum>i = 0..<dim_vec a. z $ i * a $ i)\<bar>"
+        have z_gr_one:"\<bar>real_of_int (z$dim_vec a)\<bar>\<ge>1" using both by auto
+        let ?first = "(k + 1) * (\<Sum>i = 0..<dim_vec a. z $ i * a $ i)"
+        let ?second = "2 * k * (k + 1) * (\<Sum>i=0..<dim_vec a. \<bar>a $ i\<bar>) + 1"
+        have "(\<Sum>i = 0..<dim_vec a. z $ i * a $ i) \<noteq> 0" using both by auto
+        then have one: "k < \<bar>?first\<bar>"
           by (smt (z3) mult_less_cancel_left2 mult_minus_right)
-        moreover have "(k + 1) * (\<Sum>i<dim_vec a. z $ i * a $ i) < 
-              k * (k + 1) * (\<Sum>i<dim_vec a. \<bar>a $ i\<bar>) + 1"
+        then have first_nonzero: "\<bar>?first\<bar> \<noteq> 0" using \<open>k>0\<close> by auto
+        have two'':"2 * \<bar>?first\<bar> < \<bar>?second\<bar>"
         proof - 
-          have "(\<Sum>i<dim_vec a. z $ i * a $ i) \<le> k * (\<Sum>i<dim_vec a. \<bar>a $ i\<bar>)" sorry
-          then show ?thesis using \<open>0 < k\<close> by auto
+          have take_k1_out: "\<bar>?first\<bar> = (k+1) * \<bar>\<Sum>i=0..<dim_vec a. z $ i * a $ i\<bar>"
+            using \<open>k>0\<close> by (smt (verit, best) mult_minus_right mult_nonneg_nonneg)
+          have "\<bar>\<Sum>i = 0..<dim_vec a. z $ i * a $ i\<bar> \<le> (\<Sum>i = 0..<dim_vec a. \<bar>z $ i * a $ i\<bar>)"
+            by (subst sum_abs[of "(\<lambda>i. z$i * a$i)" "{0..<dim_vec a}"],simp)
+          also have "\<dots> = (\<Sum>i=0..<dim_vec a. \<bar>z $ i\<bar> * \<bar>a $ i\<bar>)"
+            by (meson abs_mult)
+          also have "\<dots> \<le> (\<Sum>i=0..<dim_vec a.  k * \<bar>a $ i\<bar>)" 
+            by (subst sum_mono) (auto simp add: z_le_k mult_right_mono)
+          also have "\<dots> = k * (\<Sum>i=0..<dim_vec a. \<bar>a $ i\<bar>)"
+          by (metis mult_hom.hom_sum)
+          finally have "\<bar>(\<Sum>i=0..<dim_vec a. z $ i * a $ i)\<bar> \<le> k * (\<Sum>i=0..<dim_vec a. \<bar>a $ i\<bar>)"
+            by blast
+          then show ?thesis using take_k1_out using \<open>0 < k\<close> by auto
         qed
-
-        ultimately have "\<bar>v $ dim_vec a\<bar> > k" using both apply auto sorry
+        then have two': "\<bar>real_of_int ?second  / real_of_int ?first\<bar> > 2" 
+        proof - 
+          have "0<real_of_int \<bar>?first\<bar>" using first_nonzero by presburger
+          have "2 * real_of_int \<bar>?first\<bar> < real_of_int \<bar>?second\<bar>" using two'' by linarith
+          then have "2 <  real_of_int \<bar>?second\<bar> / real_of_int \<bar>?first\<bar>" 
+            by (subst pos_less_divide_eq[OF \<open>0<real_of_int \<bar>?first\<bar>\<close>], auto)
+          also have "\<dots> = \<bar>real_of_int ?second / real_of_int ?first\<bar>" by simp
+          finally show ?thesis by presburger
+        qed
+        then have two:"\<bar>(real_of_int ?second  / real_of_int ?first) * 
+            real_of_int (z$dim_vec a)\<bar> > 2"
+        proof -
+          have "\<bar>(real_of_int ?second  / real_of_int ?first) * 
+            real_of_int (z$dim_vec a)\<bar> = \<bar>real_of_int ?second  / real_of_int ?first\<bar> * 
+            \<bar>real_of_int (z$dim_vec a)\<bar>" by (subst abs_mult, auto)
+          also have ineq: "\<dots> \<ge> \<bar>real_of_int ?second  / real_of_int ?first\<bar>"
+            using z_gr_one by (smt (z3) mult_less_cancel_left2)
+          finally have "\<bar>(real_of_int ?second  / real_of_int ?first) * 
+            real_of_int (z$dim_vec a)\<bar>\<ge> \<bar>real_of_int ?second  / real_of_int ?first\<bar>" by blast
+          then show ?thesis using two' by linarith
+        qed
+        have "real_of_int \<bar>v $ dim_vec a\<bar> / real_of_int \<bar>?first\<bar> \<ge> 1"
+        proof -
+          have "real_of_int \<bar>v $ dim_vec a\<bar> / real_of_int \<bar>?first\<bar> = 
+            \<bar>real_of_int (v $ dim_vec a)\<bar> / \<bar>real_of_int ?first\<bar>"
+            using of_int_abs[of "v $ dim_vec a"] of_int_abs[of "?first"] by auto
+          also have "\<dots> = \<bar>real_of_int (v $ dim_vec a) / real_of_int ?first\<bar>"
+            using abs_divide[symmetric] by auto
+          also have "\<dots> = \<bar>(real_of_int ?first + real_of_int ?second * real_of_int (z$dim_vec a)) / 
+            real_of_int ?first\<bar>" using v_last by auto
+          also have "\<dots> = \<bar>real_of_int ?first / real_of_int ?first + 
+            (real_of_int ?second  / real_of_int ?first)* real_of_int (z$dim_vec a)\<bar>"
+            by (metis (no_types, lifting) add_divide_distrib times_divide_eq_left)
+          also have "\<dots> = \<bar>1 + (real_of_int ?second  / real_of_int ?first) * 
+            real_of_int (z$dim_vec a)\<bar>"
+            using first_nonzero by (smt (verit, del_insts) of_int_eq_0_iff one_eq_divide_iff)
+          also have "\<dots> \<ge> 1" using two by linarith
+          finally show "real_of_int \<bar>v $ dim_vec a\<bar> / real_of_int \<bar>?first\<bar> \<ge> 1" by blast
+        qed
+        then have "real_of_int \<bar>v $ dim_vec a\<bar> \<ge> real_of_int \<bar>?first\<bar>"
+          by (simp add: le_divide_eq_1)
+        then have "\<bar>v $ dim_vec a\<bar> \<ge> \<bar>?first\<bar>" using of_int_le_iff by blast
+        then have "\<bar>v $ dim_vec a\<bar> > k" using one by auto
         then show ?thesis using v_le_k[of "dim_vec a"] by auto
       qed
     qed
   
-  
-  
-  find_theorems "\<bar>_\<bar> = _*_"
-  
-  
     have z_last_zero: "z$(dim_vec a) = 0" sorry
   
-    have v_real_z: "v = z" sorry
-    have "dim_vec a > 0" sorry
+    have v_real_z: "v = z" using v_eq_z_upto_last v_last_zero z_last_zero
+      by (metis Suc_eq_plus1 dim_v_dim_a less_Suc_eq vec_eq_iff z_def(2))
+    have a_nonempty: "dim_vec a > 0" sorry
   
     have "a \<bullet> x = 0" 
     proof -
