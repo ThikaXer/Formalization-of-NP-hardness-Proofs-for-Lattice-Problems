@@ -15,7 +15,8 @@ definition is_shortest_vec :: "int_lattice  \<Rightarrow> int vec \<Rightarrow> 
 
 text \<open>The decision problem associated with solving SVP exactly.\<close>
 definition gap_svp :: "(int_lattice \<times> int) set" where
-  "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm v \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
+  "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (dim_lattice L \<ge> 2) \<and> 
+      (\<exists>v\<in>L. infnorm v \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
 
 text \<open>Generate a lattice to solve SVP for reduction\<close>
 
@@ -87,8 +88,10 @@ case (2 i)
     also have "\<dots> = z$i" by (subst sum.insert_remove, auto) 
     finally have "(\<Sum>ia = 0..<dim_vec a. (if i = ia then 1 else 0) * z $ ia) = z $ i" 
       by auto
+    then have "(\<Sum>ia = 0..<dim_vec a. real_of_int (if i = ia then 1 else 0) * z $ ia) = z $ i" 
+      by (smt (verit, best) of_int_hom.hom_one of_int_hom.hom_zero sum.cong)
     then show ?thesis unfolding mult_mat_vec_def gen_svp_basis_def scalar_prod_def 
-      using True assms sorry
+      using True assms by auto
   next
   case False
     then have "i = dim_vec a" using 2 by auto
@@ -149,13 +152,6 @@ case (1 z)
     qed
 (*Problems here when changing 2*(k+1) to k*(k+1). 
   This is necessary since k'a only is smaller than k'' under the assumtion that z$i\<le>k, not z$i\<le>2.*)
-
-(*    proof (safe)
-      assume ass: "(k * (k + 1) *  (sum (($) a) {0..<dim_vec a}) + 1 ) = 0"
-      then show False using assms  sorry
-        by (smt (z3) ass assms divide_less_eq_1_pos mult_minus_right nonzero_mult_div_cancel_left 
-          of_int_hom.hom_one of_int_less_iff of_int_minus)
-    qed*)
     ultimately show ?thesis by auto
   qed
   ultimately have "z$i =  0" if "i < dim_vec z" for i using that suc_dim_a_dim_z
@@ -182,7 +178,33 @@ qed
 lemma svp_k_pos:
   assumes "reduce_svp_bhle (a, k) \<in> gap_svp"
   shows "k>0"
-sorry
+proof -
+  obtain v where v_in_lattice: "v\<in>gen_lattice (gen_svp_basis a k)" 
+    and infnorm_v: "infnorm v \<le> k" 
+    and v_nonzero:  "v \<noteq> 0\<^sub>v (dim_vec v)" 
+    using assms unfolding reduce_svp_bhle_def gap_svp_def by force
+  have "\<exists> i < dim_vec v. \<bar>v $ i\<bar> > 0" using v_nonzero by auto
+  then have "infnorm v > 0" unfolding infnorm_def by (subst Max_gr_iff, auto)
+  then show ?thesis using infnorm_v by auto
+qed
+
+
+lemma svp_dim_vec_a:
+  assumes "reduce_svp_bhle (a, k) \<in> gap_svp"
+  shows "dim_vec a > 0"
+proof -
+  have "2 \<le> dim_lattice (gen_lattice (gen_svp_basis a k))" 
+    using assms unfolding reduce_svp_bhle_def gap_svp_def by auto
+  then have "2 \<le> dim_col (gen_svp_basis a k)" 
+    using dim_lattice_gen_lattice[of "gen_svp_basis a k",OF is_indep_gen_svp_basis]
+      svp_k_pos[OF assms] by auto
+  then show ?thesis unfolding gen_svp_basis_def by auto
+qed
+
+lemma bhle_dim_vec_a:
+  assumes "(a, k) \<in> bhle"
+  shows "dim_vec a > 0"
+using assms unfolding bhle_def by auto
 
 
 lemma first_lt_second:
@@ -217,45 +239,52 @@ proof (safe, goal_cases)
   case (1 x)
   have "k>0" using assms bhle_k_pos by auto
   then show ?case using is_lattice_gen_lattice is_indep_gen_svp_basis by auto
-next
+next 
   case (2 x)
+  have "dim_lattice (gen_lattice (gen_svp_basis a k)) = dim_col (gen_svp_basis a k)"
+    using dim_lattice_gen_lattice assms bhle_k_pos is_indep_gen_svp_basis by presburger
+  also have "\<dots> =  dim_vec a + 1" unfolding gen_svp_basis_def by auto
+  also have "\<dots> \<ge> 2" using bhle_dim_vec_a[OF assms] by auto                              
+  finally show ?case by auto
+next
+  case (3 x)
   let ?x = "vec (dim_vec x + 1) (\<lambda>i. if i< dim_vec x then x$i else 0)"
   define v where "v = (gen_svp_basis a k) *\<^sub>v ?x"
   have eigen_v: "v = ?x" unfolding v_def 
   proof (subst gen_svp_basis_mult[where a= a and k=k and z=" ?x"],
-         auto simp add: 2(2) comp_def, subst vec_eq_iff,
-         auto simp add: 2(1) scalar_prod_def, goal_cases one two)
+         auto simp add: 3(2) comp_def, subst vec_eq_iff,
+         auto simp add: 3(1) scalar_prod_def, goal_cases one two)
     case (one i)
-    then show ?case by (auto simp add: comp_def 2(2))
+    then show ?case by (auto simp add: comp_def 3(2))
   next
     case (two i)
     have "(\<Sum>i = 0..<dim_vec a. (x $ i) * (a $ i)) = 0" 
-      using 2 unfolding scalar_prod_def
+      using 3 unfolding scalar_prod_def
       by (smt (verit) mult.commute of_int_hom.hom_zero of_int_mult of_int_sum sum.cong)
-    then show ?case using 2 by auto
+    then show ?case using 3 by auto
   qed
   have "dim_vec ?x = dim_col (gen_svp_basis a k)" 
-    using 2(2) unfolding gen_svp_basis_def by auto
+    using 3(2) unfolding gen_svp_basis_def by auto
   then have "v \<in> gen_lattice (gen_svp_basis a k)"  
     unfolding v_def gen_lattice_def by auto
   moreover have "infnorm v \<le> k" 
   proof -
     have "infnorm v \<le> infnorm x" 
-    proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases)
-    case (3 b)
-      have dim_x_nonzero: "dim_vec x \<noteq> 0" using 2(3) by auto
+    proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases _ _ three)
+    case (three b)
+      have dim_x_nonzero: "dim_vec x \<noteq> 0" using 3(3) by auto
       then have nonempty: "(\<exists>a\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> a)"
         using abs_ge_zero by blast
       have " \<bar>x $ i\<bar> \<le> Max {\<bar>x $ j\<bar> |j. j < dim_vec x}" 
         if "i < dim_vec x" for i 
       using that by (subst Max_ge, auto)
-      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 2 nonempty
+      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 3 nonempty
         by (subst Max_ge_iff, auto)
-      ultimately show ?case using 3 by auto
+      ultimately show ?case using three by auto
     qed auto
-    then show ?thesis using 2 by auto
+    then show ?thesis using 3 by auto
   qed
-  moreover have "v \<noteq> 0\<^sub>v (dim_vec v)" using 2(3) 
+  moreover have "v \<noteq> 0\<^sub>v (dim_vec v)" using 3(3) 
   proof (subst eigen_v, safe) 
     assume fst: "x \<noteq> 0\<^sub>v (dim_vec x)" 
     assume snd: "?x = 0\<^sub>v (dim_vec v)"
@@ -277,14 +306,9 @@ text \<open>NP-hardness of reduction function\<close>
 lemma NP_hardness_reduction_svp:
   assumes "reduce_svp_bhle (a,k) \<in> gap_svp"
   shows "(a,k) \<in> bhle"
-
 proof (cases "(\<Sum>i<dim_vec a. a$i) = 0")
   case True
-  have a_nonempty: "dim_vec a > 0" sorry
-
-(*Problem: need to show that not all as are 0?!*)
-
-
+  have a_nonempty: "dim_vec a > 0" using svp_dim_vec_a[OF assms] by auto
   have "k>0" using svp_k_pos[OF assms] by auto
   define x where "x = vec (dim_vec a) (\<lambda>i. k)"
   have "a \<bullet> x = 0" unfolding x_def scalar_prod_def 
@@ -313,24 +337,25 @@ next
   show ?thesis using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
   proof (safe, goal_cases)
     case (1 v)
-    have "k>0" using 1(4) 1(3) unfolding infnorm_def
+    have a_nonempty: "dim_vec a > 0" using svp_dim_vec_a[OF assms] by auto  
+    have "k>0"  unfolding infnorm_def
     proof -
-      have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1(4) by auto
-      then have "infnorm v > 0" unfolding infnorm_def using 1(4) by (subst Max_gr_iff, auto)
-      then show ?thesis using 1(3) by auto
+      have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1 by auto
+      then have "infnorm v > 0" unfolding infnorm_def by (subst Max_gr_iff, auto)
+      then show ?thesis using 1 by auto
     qed
     then have "k\<ge>1" by auto
     obtain z where z_def:
       "v = (gen_svp_basis a k) *\<^sub>v  z" 
       "dim_vec z = dim_vec a + 1"
-      using 1(2) unfolding gen_lattice_def gen_svp_basis_def by auto
+      using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
     have dim_v_dim_a:"dim_vec v = dim_vec a + 1" 
       using 1 unfolding gen_lattice_def gen_svp_basis_def by auto
     define x where "x = vec (dim_vec a) (($) z)"
     have v_eq_z_upto_last: "v $ i = z $ i" if "i< dim_vec a" for i 
       by (subst z_def) (subst gen_svp_basis_mult; use that z_def in \<open>auto\<close>)
     have v_le_k: "\<bar>v $ i\<bar> \<le> k" if "i< dim_vec a + 1" for i
-      using 1(3) dim_v_dim_a that unfolding infnorm_def
+      using 1 dim_v_dim_a that unfolding infnorm_def
       using Max_le_iff[of "{\<bar>v $ i\<bar> |i. i < dim_vec v}" k]
       by fastforce
     then have z_le_k: "\<bar>z $ i\<bar> \<le> k" if "i< dim_vec a" for i
@@ -434,7 +459,6 @@ next
         then show ?thesis using v_le_k[of "dim_vec a"] by auto
       qed
     qed
-  
     have z_last_zero: "z$dim_vec a = 0" 
     proof (rule ccontr)
       assume ccontr_assms:"z $ dim_vec a \<noteq> 0"
@@ -455,11 +479,10 @@ next
       qed
       ultimately show False by auto
     qed
-  
+ 
     have v_real_z: "v = z" using v_eq_z_upto_last v_last_zero z_last_zero
       by (metis Suc_eq_plus1 dim_v_dim_a less_Suc_eq vec_eq_iff z_def(2))
-    have a_nonempty: "dim_vec a > 0" sorry
-  
+
     have "a \<bullet> x = 0" 
     proof -
       have "0 = ((gen_svp_basis a k) *\<^sub>v  z) $ (dim_vec a)" 
@@ -506,7 +529,7 @@ next
         by blast
       then have "real_of_int (infnorm x) = infnorm v" 
         using x_def z_def v_real_z unfolding infnorm_def by auto
-      then show ?thesis using 1(3) by auto
+      then show ?thesis using 1 by auto
     qed
     ultimately show ?case by blast
   qed
