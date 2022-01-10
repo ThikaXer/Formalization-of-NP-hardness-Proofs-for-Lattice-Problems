@@ -22,7 +22,7 @@ text \<open>Generate a lattice to solve SVP for reduction\<close>
 
 text \<open>Here, the factor K'' from the paper "Another NP-complete partition problem 
   and the complexity of computing short vectors in a lattice" by Peter van Emde Boas 
-  was changed to be $2*\textbf{k}*(k+1)*\sum_i || a_i ||$\<close>
+  was changed to be $2*\textbf{k}*(k+1)*\sum_i \textbf{|| a_i ||}$\<close>
 
 (*Do we need absolute value for a_i in sum as well \<rightarrow> I think yes!*)
 

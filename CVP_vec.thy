@@ -5,7 +5,7 @@ imports Main
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
         Lattice_vec
         Subset_Sum
-        infnorm
+        "LLL_Basis_Reduction.Norms"
 
 
 begin
@@ -21,11 +21,11 @@ text \<open>The CVP  in $l_\infty$\<close>
 text \<open>The closest vector problem.\<close>
 definition is_closest_vec :: "lattice \<Rightarrow> real vec \<Rightarrow> real vec \<Rightarrow> bool" where
   "is_closest_vec L b v \<equiv> (is_lattice L) \<and> 
-    (\<forall>x\<in>L. infnorm  (x - b) \<ge>  infnorm (v - b) \<and> v\<in>L)"
+    (\<forall>x\<in>L. linf_norm_vec  (x - b) \<ge>  linf_norm_vec (v - b) \<and> v\<in>L)"
 
 text \<open>The decision problem associated with solving CVP exactly.\<close>
 definition gap_cvp :: "(lattice \<times> real vec \<times> real) set" where
-  "gap_cvp \<equiv> {(L, b, r). (is_lattice L) \<and> (\<exists>v\<in>L. infnorm (v - b) \<le> r)}"
+  "gap_cvp \<equiv> {(L, b, r). (is_lattice L) \<and> (\<exists>v\<in>L. linf_norm_vec (v - b) \<le> r)}"
 
 
 
@@ -66,6 +66,9 @@ proof -
   then show ?thesis by (simp add: assms(1))
 qed
 
+lemma linf_norm_vec_Max:
+  "\<parallel>v\<parallel>\<^sub>\<infinity> = Max {\<bar>v$i\<bar> | i. i< dim_vec v}"
+unfolding linf_norm_vec_def sorry
 
 
 lemma Max_real_of_int:
@@ -135,9 +138,9 @@ lemma Bx_s_rewrite:
 unfolding gen_t_def by (subst  Bx_rewrite[OF assms], auto)
 
 
-lemma infnorm_Bx_s:
+lemma linf_norm_vec_Bx_s:
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "infnorm ((gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)) = 
+  shows "linf_norm_vec ((gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)) = 
     Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
       {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 })"
 proof -
@@ -145,9 +148,9 @@ proof -
   let ?goal_vec = "vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
       if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
   define n where n_def: "n = dim_vec as"
-  have "infnorm ?init_vec = infnorm ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
+  have "linf_norm_vec ?init_vec = linf_norm_vec ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
   also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
-    unfolding infnorm_def n_def by auto
+    unfolding linf_norm_vec_def n_def by auto
   also have "\<dots> = Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
                        {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
                        {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
@@ -279,11 +282,11 @@ proof -
     (is "?init_vec = ?goal_vec")
   unfolding B_def b_def reduce_cvp_subset_sum_def
   by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
-  have "infnorm (B *\<^sub>v (real_of_int_vec x) - b) = 
+  have "linf_norm_vec (B *\<^sub>v (real_of_int_vec x) - b) = 
     Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
       {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
   unfolding B_def b_def reduce_cvp_subset_sum_def 
-  by (auto simp add: infnorm_Bx_s[OF x_dim[symmetric]] n_def)
+  by (auto simp add: linf_norm_vec_Bx_s[OF x_dim[symmetric]] n_def)
   also have  "\<dots> \<le> r"
   proof -
     have elem: "x$(i-2)\<in>{0,1}" if "1<i \<and> i<n+2" for i 
@@ -297,14 +300,14 @@ proof -
       by (safe, auto)
     then show ?thesis using x_lin_combo \<open>r=1\<close> by auto
   qed
-  finally have "infnorm (?init_vec) \<le> r" by blast
+  finally have "linf_norm_vec (?init_vec) \<le> r" by blast
   moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
   proof -
     have "dim_vec x = dim_col (gen_basis as)" unfolding gen_basis_def using x_dim by auto
     then show ?thesis
       unfolding L_def reduce_cvp_subset_sum_def gen_lattice_def B_def by auto
   qed
-  ultimately have witness: "\<exists>v\<in>L. infnorm (v - b) \<le> r" by auto
+  ultimately have witness: "\<exists>v\<in>L. linf_norm_vec (v - b) \<le> r" by auto
   have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis[of as] by simp
   have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
     using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
@@ -319,9 +322,9 @@ proof -
   define B where "B = gen_basis as"
   define L where "L = gen_lattice B"
   define b where "b = gen_t as s"
-  have ex_v: "\<exists>v\<in>L. infnorm (v - b) \<le> 1" and is_lattice: "is_lattice L"
+  have ex_v: "\<exists>v\<in>L. linf_norm_vec (v - b) \<le> 1" and is_lattice: "is_lattice L"
     using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
-  then obtain v where v_in_L:"v\<in>L" and ineq:"infnorm (v - b) \<le> 1" by blast
+  then obtain v where v_in_L:"v\<in>L" and ineq:"linf_norm_vec (v - b) \<le> 1" by blast
   have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
   using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_def by auto
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
@@ -331,13 +334,13 @@ proof -
       if i = 1 then real_of_int (zs \<bullet> as - s + 1) else real_of_int (2 * zs$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
   unfolding v_def B_def b_def using Bx_s_rewrite[OF zs_dim[symmetric]] n_def by simp
-  have infnorm_ineq: "infnorm (v-b) = Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+  have linf_norm_vec_ineq: "linf_norm_vec (v-b) = Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
     {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union> {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
-  unfolding v_def B_def b_def using infnorm_Bx_s[OF zs_dim[symmetric]] n_def by simp
+  unfolding v_def B_def b_def using linf_norm_vec_Bx_s[OF zs_dim[symmetric]] n_def by simp
 
   have Max_le_1: "Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
     {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
-  using ineq by (subst infnorm_ineq[symmetric])
+  using ineq by (subst linf_norm_vec_ineq[symmetric])
   have "\<bar>2*zs$(i-2)-1\<bar>\<le>1" if "1<i \<and> i<n+2" for i using Max_le_1 that by auto
   then have "zs$(i-2) = 0 \<or> zs$(i-2) = 1" if "1<i \<and> i<n+2" for i
     using that by force
