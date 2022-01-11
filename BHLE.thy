@@ -169,9 +169,10 @@ proof (safe, goal_cases)
   have "(gen_bhle a) \<bullet> x = 0"
   proof -
     have "(gen_bhle a) \<bullet> x = (\<Sum>i\<in>{1..<n}. (b1 i M (a!(i-1))) - (b2 i M) - (b5 i M)) + 
-              (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)" sorry
+              (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)" unfolding gen_bhle_def sorry
     also have "\<dots> = (\<Sum>i\<in>{1..<n}. (a!(i-1)) + M * 5^(4*i-4) - M * 5^(4*i)) +
-                    (a!(n-1)) + M * 5^(4*n-4) - M" sorry
+                    (a!(n-1)) + M * 5^(4*n-4) - M" unfolding b1_def b2_def b5_def b2_last_def 
+      apply simp sorry
     also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{1..<n}. 5^(4*i)) - 1)" sorry
     also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))" sorry
     also have "\<dots> = (\<Sum>i<n. a!i)" sorry
