@@ -3,7 +3,7 @@ theory CVP_vec
 imports Main 
         "poly-reductions/Karp21/Reductions"
         (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
-        Lattice_vec
+        Lattice_int
         Subset_Sum
         "LLL_Basis_Reduction.Norms"
 
@@ -19,32 +19,32 @@ text \<open>We do not need a fixed type anymore, but can just take the dimension
 text \<open>The CVP  in $l_\infty$\<close>
 
 text \<open>The closest vector problem.\<close>
-definition is_closest_vec :: "lattice \<Rightarrow> real vec \<Rightarrow> real vec \<Rightarrow> bool" where
+definition is_closest_vec :: "int_lattice \<Rightarrow> int vec \<Rightarrow> int vec \<Rightarrow> bool" where
   "is_closest_vec L b v \<equiv> (is_lattice L) \<and> 
     (\<forall>x\<in>L. linf_norm_vec  (x - b) \<ge>  linf_norm_vec (v - b) \<and> v\<in>L)"
 
 text \<open>The decision problem associated with solving CVP exactly.\<close>
-definition gap_cvp :: "(lattice \<times> real vec \<times> real) set" where
+definition gap_cvp :: "(int_lattice \<times> int vec \<times> int) set" where
   "gap_cvp \<equiv> {(L, b, r). (is_lattice L) \<and> (\<exists>v\<in>L. linf_norm_vec (v - b) \<le> r)}"
 
 
 
 text \<open>Reduction function for cvp to subset sum\<close>
 
-definition gen_basis :: "int vec \<Rightarrow> real mat" where
+definition gen_basis :: "int vec \<Rightarrow> int mat" where
   "gen_basis as = mat (dim_vec as + 2) (dim_vec as) (\<lambda> (i, j). if i \<in> {0,1} then as$j 
     else (if i = j + 2 then 2 else 0))"
 
 
-definition gen_t :: "int vec \<Rightarrow> int \<Rightarrow> real vec" where
+definition gen_t :: "int vec \<Rightarrow> int \<Rightarrow> int vec" where
   "gen_t as s = vec (dim_vec as + 2) ((\<lambda> i. 1)(0:= s+1, 1:= s-1))"
 
 
 
 definition reduce_cvp_subset_sum :: 
-  "((int vec) * int) \<Rightarrow> (lattice * (real vec) * real)" where
+  "((int vec) * int) \<Rightarrow> (int_lattice * (int vec) * int)" where
   "reduce_cvp_subset_sum \<equiv> (\<lambda> (as,s).
-    (gen_lattice (gen_basis as), gen_t as s, (1::real)))"
+    (gen_lattice (gen_basis as), gen_t as s, (1::int)))"
 
 
 text \<open>Lemmas for Proof\<close>
@@ -66,15 +66,11 @@ proof -
   then show ?thesis by (simp add: assms(1))
 qed
 
+
 lemma linf_norm_vec_Max:
   "\<parallel>v\<parallel>\<^sub>\<infinity> = Max {\<bar>v$i\<bar> | i. i< dim_vec v}"
-unfolding linf_norm_vec_def sorry
+unfolding linf_norm_vec_def  sorry
 
-
-lemma Max_real_of_int:
-  assumes "finite A" "A\<noteq>{}"
-  shows "Max (real_of_int ` A) = real_of_int (Max A)"
-using mono_Max_commute[OF _ assms, of real_of_int]  by (simp add: mono_def)
 
 lemma set_compr_elem: 
   assumes "finite A" "a\<in>A"
@@ -83,77 +79,72 @@ by (safe, use assms in \<open>auto\<close>)
 
 
 
-
 lemma Bx_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) = 
-    vec (dim_vec as + 2) (\<lambda> i. if i \<in> {0,1} then real_of_int (x \<bullet> as) 
-    else real_of_int (2 * x$(i-2)))"
+  shows "(gen_basis as) *\<^sub>v x = 
+    vec (dim_vec as + 2) (\<lambda> i. if i \<in> {0,1} then (x \<bullet> as) 
+    else (2 * x$(i-2)))"
     (is "?init_vec = ?goal_vec")
 proof -
   define n::nat where n_def: "n = dim_vec as"
-  have "vec n (\<lambda>j. real_of_int (as $ j)) \<bullet> (real_of_int_vec x) = 
-     real_of_int (x \<bullet> as)"
-    unfolding n_def scalar_prod_def real_of_int_vec_def 
-    using x_dim by (auto simp add: mult.commute)
+  have "vec n (\<lambda>j.  (as $ j)) \<bullet>  x = (x \<bullet> as)"
+    unfolding n_def scalar_prod_def using x_dim by (simp add: mult.commute)
   then show ?thesis 
-    unfolding gen_basis_def reduce_cvp_subset_sum_def gen_t_def real_of_int_vec_def
+    unfolding gen_basis_def reduce_cvp_subset_sum_def gen_t_def
   proof (intro eq_vecI, auto simp add: n_def, goal_cases)
     case (1 i)
-    have "(\<Sum>ia = 0..<dim_vec (real_of_int_vec x).
-      vec (dim_vec as) (\<lambda>j. real_of_int (if i = Suc (Suc j) then 2 else 0)) $ ia *
-      (real_of_int_vec x) $ ia) =
-      (\<Sum>ia<n. real_of_int (if i = ia+2 then 2 * (x $ ia) else 0))"
+    have "(\<Sum>ia = 0..<dim_vec x.
+      vec (dim_vec as) (\<lambda>j.  (if i = Suc (Suc j) then 2 else 0)) $ ia * x $ ia) =
+      (\<Sum>ia<n.  (if i = ia+2 then 2 * (x $ ia) else 0))"
       by (intro sum.cong, auto simp add: n_def x_dim)
     also have "\<dots> = (\<Sum>ib\<in>{2..<n+2}. 
-        real_of_int (if i = ib then 2 * (x $ (ib-2)) else 0))" 
+         (if i = ib then 2 * (x $ (ib-2)) else 0))" 
     proof - 
-      have eq: "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0)) \<circ> (+) 2
-          = (\<lambda>ia. real_of_int (if i = ia + 2 then 2 * x $ ia else 0))"
+      have eq: "(\<lambda>ib.  (if i = ib then 2 * x $ (ib - 2) else 0)) \<circ> (+) 2
+          = (\<lambda>ia.  (if i = ia + 2 then 2 * x $ ia else 0))"
       by auto
       then show ?thesis
         by (subst sum.atLeastLessThan_shift_0[
-            of "(\<lambda>ib. real_of_int (if i = ib then 2 * x $ (ib - 2) else 0))" 2 "n+2"])
+            of "(\<lambda>ib.  (if i = ib then 2 * x $ (ib - 2) else 0))" 2 "n+2"])
           (subst eq, use lessThan_atLeast0 in \<open>auto\<close>)
     qed
-    also have "\<dots> = 2 * real_of_int (x $ (i-2))" 
+    also have "\<dots> = 2 *  (x $ (i-2))" 
     proof - 
       have finite: "finite {2..<n+2}" by auto
       have is_in: "i \<in> {2..<n+2}" using 1 by (auto simp add: n_def)
       show ?thesis 
-      by (subst of_int_sum[symmetric]) 
-         (subst sum_if_zero[OF finite is_in, of "(\<lambda>k.2 * (x $ (k-2)))"], auto)
+      by (subst sum_if_zero[OF finite is_in, of "(\<lambda>k.2 * (x $ (k-2)))"], auto)
     qed
-    finally show ?case unfolding scalar_prod_def real_of_int_vec_def by auto
+    finally show ?case unfolding scalar_prod_def by auto
   qed
 qed
 
 
 lemma Bx_s_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s) = 
-    vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  shows "(gen_basis as) *\<^sub>v x - (gen_t as s) = 
+    vec (dim_vec as + 2) (\<lambda> i. if i = 0 then  (x \<bullet> as - s - 1) else (
+      if i = 1 then  (x \<bullet> as - s + 1) else  (2 * x$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
 unfolding gen_t_def by (subst  Bx_rewrite[OF assms], auto)
 
 
 lemma linf_norm_vec_Bx_s:
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "linf_norm_vec ((gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)) = 
-    Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 })"
+  shows "linf_norm_vec ((gen_basis as) *\<^sub>v x - (gen_t as s)) = 
+    Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 })"
 proof -
-  let ?init_vec = "(gen_basis as) *\<^sub>v (real_of_int_vec x) - (gen_t as s)"
-  let ?goal_vec = "vec (dim_vec as + 2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  let ?init_vec = "(gen_basis as) *\<^sub>v x - (gen_t as s)"
+  let ?goal_vec = "vec (dim_vec as + 2) (\<lambda> i. if i = 0 then  (x \<bullet> as - s - 1) else (
+      if i = 1 then  (x \<bullet> as - s + 1) else  (2 * x$(i-2) - 1)))"
   define n where n_def: "n = dim_vec as"
   have "linf_norm_vec ?init_vec = linf_norm_vec ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
   also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
-    unfolding linf_norm_vec_def n_def by auto
-  also have "\<dots> = Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
-                       {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-                       {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
+    unfolding linf_norm_vec_Max n_def by auto
+  also have "\<dots> = Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
+                       { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+                       { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
   proof -
     have "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
       {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" 
@@ -166,18 +157,18 @@ proof -
       by (subst set_compr_elem[of "{1..<n+2}" 1 "(\<lambda>i. \<bar>?goal_vec $i\<bar>)"], auto)
       finally show ?thesis by auto
     qed
-    also have "\<dots> = {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+    also have "\<dots> = { \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
       {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" by auto
     also have "{\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2} = 
-      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}"
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}"
     proof -
-      have "\<bar>?goal_vec $i\<bar> = real_of_int \<bar>2*x$(i-2)-1\<bar>" if "1<i \<and> i<n+2" for i 
+      have "\<bar>?goal_vec $i\<bar> =  \<bar>2*x$(i-2)-1\<bar>" if "1<i \<and> i<n+2" for i 
       using that n_def by force
       then show ?thesis using n_def by force
     qed
     finally have eq: "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
-      {real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}" by blast
+      { \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}" by blast
     then show ?thesis by auto
   qed
   finally show ?thesis using n_def by blast
@@ -185,7 +176,7 @@ qed
 
 
 
-text \<open>gen_basis actually generates a basis which is spans the lattice (by definition) and 
+text \<open>gen_basis actually generates a basis which is spans the int_lattice (by definition) and 
   is linearly independent.\<close>
 
 
@@ -197,16 +188,16 @@ case (1 z)
   let ?n = "dim_vec as"
   have z_dim: "dim_vec z = ?n" using 1(2) unfolding gen_basis_def by auto
   have dim_row: "dim_row (gen_basis as) = ?n + 2" unfolding gen_basis_def by auto
-  have eq: "gen_basis as *\<^sub>v z = vec (?n + 2) (\<lambda> i. if i \<in> {0,1} 
+  have eq: "(real_of_int_mat (gen_basis as)) *\<^sub>v z = vec (?n + 2) (\<lambda> i. if i \<in> {0,1} 
     then (z \<bullet> (real_of_int_vec as)) else (2 * z$(i-2)))" 
-  (is "gen_basis as *\<^sub>v z = ?goal_vec")
+  (is "(real_of_int_mat (gen_basis as)) *\<^sub>v z = ?goal_vec")
   proof -
     have scal_prod_com: "z \<bullet> real_of_int_vec as = real_of_int_vec as \<bullet> z"
       using comm_scalar_prod[of "real_of_int_vec as" ?n z] z_dim
       by (metis carrier_dim_vec index_map_vec(2) real_of_int_vec_def)
-    have *: "row (mat (?n+2) (?n) (\<lambda>x. real_of_int
+    have *: "row (of_int_hom.mat_hom (mat (?n+2) (?n) (\<lambda>x. 
       (case x of (i, j) \<Rightarrow> if i = 0 \<or> i = Suc 0 then as $ j
-                           else if i = j + 2 then 2 else 0))) i = 
+                           else if i = j + 2 then 2 else 0)))) i = 
       (if i\<in>{0,1} then real_of_int_vec as else vec ?n (\<lambda>j. if i = j + 2 then 2 else 0))"
     (is "?row = ?vec") 
     if "i<?n+2" for i 
@@ -241,7 +232,7 @@ case (1 z)
       (if i \<in> {0,1} then z \<bullet> real_of_int_vec as else 2 * z $ (i - 2))"
     if "i<?n+2" for i using that by (subst scal_prod_com)
     then show ?thesis 
-      unfolding gen_basis_def mult_mat_vec_def by auto
+      unfolding real_of_int_mat_def gen_basis_def mult_mat_vec_def by auto
   qed
   have "\<dots> = 0\<^sub>v (?n + 2)" using 1(1) dim_row by (subst eq[symmetric], auto) 
   then have "2 * z$(i-2) = 0" if "1<i" and "i<?n +2" for i 
@@ -276,15 +267,15 @@ proof -
   (*have "(L,b,r) = reduce_cvp_subset_sum (as, s)" using L_def b_def r_def by auto*)
   define B where "B = gen_basis as"
   define n where n_def: "n = dim_vec as"
-  have init_eq_goal: "B *\<^sub>v (real_of_int_vec x) - b = 
-    vec (n+2) (\<lambda> i. if i = 0 then real_of_int (x \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (x \<bullet> as - s + 1) else real_of_int (2 * x$(i-2) - 1)))"
+  have init_eq_goal: "B *\<^sub>v x - b = 
+    vec (n+2) (\<lambda> i. if i = 0 then  (x \<bullet> as - s - 1) else (
+      if i = 1 then  (x \<bullet> as - s + 1) else  (2 * x$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
   unfolding B_def b_def reduce_cvp_subset_sum_def
   by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
-  have "linf_norm_vec (B *\<^sub>v (real_of_int_vec x) - b) = 
-    Max ({real_of_int \<bar>x \<bullet> as - s - 1\<bar>} \<union> {real_of_int \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      {real_of_int \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+  have "linf_norm_vec (B *\<^sub>v x - b) = 
+    Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
   unfolding B_def b_def reduce_cvp_subset_sum_def 
   by (auto simp add: linf_norm_vec_Bx_s[OF x_dim[symmetric]] n_def)
   also have  "\<dots> \<le> r"
@@ -296,12 +287,12 @@ proof -
       nat_1_add_1 not_add_less2)
     then have "\<bar>2*x$(i-2)-1\<bar> = 1" if "1<i \<and> i<n+2" for i 
       using elem[OF that] by auto
-    then have "{real_of_int \<bar>2 * x $ (i - 2) - 1\<bar> |i. 1 < i \<and> i < n + 2} \<subseteq> {1}" 
+    then have "{ \<bar>2 * x $ (i - 2) - 1\<bar> |i. 1 < i \<and> i < n + 2} \<subseteq> {1}" 
       by (safe, auto)
     then show ?thesis using x_lin_combo \<open>r=1\<close> by auto
   qed
   finally have "linf_norm_vec (?init_vec) \<le> r" by blast
-  moreover have "B *\<^sub>v (real_of_int_vec x)\<in>L" 
+  moreover have "B *\<^sub>v x\<in>L" 
   proof -
     have "dim_vec x = dim_col (gen_basis as)" unfolding gen_basis_def using x_dim by auto
     then show ?thesis
@@ -309,9 +300,9 @@ proof -
   qed
   ultimately have witness: "\<exists>v\<in>L. linf_norm_vec (v - b) \<le> r" by auto
   have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis[of as] by simp
-  have L_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
+  have L_int_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_def 
     using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
-  show ?thesis unfolding gap_cvp_def using L_lattice witness L_def b_def r_def by force
+  show ?thesis unfolding gap_cvp_def using L_int_lattice witness L_def b_def r_def by force
 qed
 
 lemma NP_hardness_reduction:
@@ -322,24 +313,24 @@ proof -
   define B where "B = gen_basis as"
   define L where "L = gen_lattice B"
   define b where "b = gen_t as s"
-  have ex_v: "\<exists>v\<in>L. linf_norm_vec (v - b) \<le> 1" and is_lattice: "is_lattice L"
+  have ex_v: "\<exists>v\<in>L. linf_norm_vec (v - b) \<le> 1" and is_int_lattice: "is_lattice L"
     using assms unfolding gap_cvp_def reduce_cvp_subset_sum_def L_def B_def b_def by auto
   then obtain v where v_in_L:"v\<in>L" and ineq:"linf_norm_vec (v - b) \<le> 1" by blast
-  have "\<exists>zs::int vec. v = B *\<^sub>v (real_of_int_vec zs) \<and> dim_vec zs = dim_vec as"
+  have "\<exists>zs::int vec. v = B *\<^sub>v zs \<and> dim_vec zs = dim_vec as"
   using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_def by auto
-  then obtain zs::"int vec" where v_def: "v = B *\<^sub>v (real_of_int_vec zs)" 
+  then obtain zs::"int vec" where v_def: "v = B *\<^sub>v  zs" 
     and zs_dim: "dim_vec zs = dim_vec as" by blast
   have init_eq_goal: "v - b = 
-    vec (n+2) (\<lambda> i. if i = 0 then real_of_int (zs \<bullet> as - s - 1) else (
-      if i = 1 then real_of_int (zs \<bullet> as - s + 1) else real_of_int (2 * zs$(i-2) - 1)))"
+    vec (n+2) (\<lambda> i. if i = 0 then  (zs \<bullet> as - s - 1) else (
+      if i = 1 then  (zs \<bullet> as - s + 1) else  (2 * zs$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
   unfolding v_def B_def b_def using Bx_s_rewrite[OF zs_dim[symmetric]] n_def by simp
-  have linf_norm_vec_ineq: "linf_norm_vec (v-b) = Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
-    {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union> {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+  have linf_norm_vec_ineq: "linf_norm_vec (v-b) = Max ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union> { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
   unfolding v_def B_def b_def using linf_norm_vec_Bx_s[OF zs_dim[symmetric]] n_def by simp
 
-  have Max_le_1: "Max ({real_of_int \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
-    {real_of_int \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  {real_of_int \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
+  have Max_le_1: "Max ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
   using ineq by (subst linf_norm_vec_ineq[symmetric])
   have "\<bar>2*zs$(i-2)-1\<bar>\<le>1" if "1<i \<and> i<n+2" for i using Max_le_1 that by auto
   then have "zs$(i-2) = 0 \<or> zs$(i-2) = 1" if "1<i \<and> i<n+2" for i
@@ -376,32 +367,6 @@ eNorm (\<LL> \<infinity> M) f
 
 
 text \<open>Polynomial time evaluation\<close>
-
-text \<open>Only use countable sets (real => rat)\<close>
-definition gen_basis_1 :: "int vec \<Rightarrow> rat mat" where
-  "gen_basis_1 as = mat (dim_vec as + 2) (dim_vec as) (\<lambda> (i, j). if i \<in> {0,1} then of_int (as$j) 
-    else (if i = j + 2 then 2 else 0))"
-
-definition gen_t_1 :: "int vec \<Rightarrow> int \<Rightarrow> rat vec" where
-  "gen_t_1 as s = vec (dim_vec as + 2) ((\<lambda> i. 1)(0:= of_int s + 1, 1:= of_int s - 1))"
-
-definition reduce_cvp_subset_sum_1 :: 
-  "((int vec) * int) \<Rightarrow> ((rat mat) * (rat vec) * rat)" where
-  "reduce_cvp_subset_sum_1 \<equiv> (\<lambda> (as,s).
-    (gen_basis_1 as, gen_t_1 as s, (1::rat)))"
-
-lemma "of_rat_hom.mat_hom (gen_basis_1 as) = gen_basis as"
-sorry
-
-lemma "of_rat_hom.vec_hom (gen_t_1 as s) = gen_t as s"
-sorry
-
-lemma "reduce_cvp_subset_sum (as, s) = 
-        (gen_lattice (of_rat_hom.mat_hom (fst (reduce_cvp_subset_sum_1 (as, s)))),
-         of_rat_hom.vec_hom (fst (snd (reduce_cvp_subset_sum_1 (as, s)))),
-         of_rat (snd (snd (reduce_cvp_subset_sum_1 (as, s)))))"
-sorry
-
 
 text \<open>Use lists instead of vectors and matrices\<close>
 definition gen_basis_2 :: "int list \<Rightarrow> rat list list" where
