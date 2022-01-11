@@ -14,7 +14,7 @@ definition partition_problem :: "(int list) set " where
   "partition_problem = {a. \<exists>I. I \<subseteq> {0..<length a} \<and> 
           (\<Sum>i\<in>I. a ! i) = (\<Sum>i\<in>({0..<length a}-I). a ! i)}"
 
-text \<open>Reduction partition problem to Knapsack.\<close>
+text \<open>Reduction partition problem to SAT(?).\<close>
 
 
 end

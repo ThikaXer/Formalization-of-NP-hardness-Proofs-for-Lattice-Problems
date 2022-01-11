@@ -14,37 +14,43 @@ definition bhle :: "(int vec * int) set" where
       x \<noteq> 0\<^sub>v (dim_vec x) \<and> infnorm x \<le> k}"
 
 text \<open>Reduction of bounded homogeneous linear equation to partition problem\<close>
-
-definition
+(*Remember: i runs from 1 to n=length a*)
+definition b1 :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" where
   "b1 i M a = a + M * (5^(4*i-4) + 5^(4*i-3) + 5^(4*i-1))"
 
-definition
+definition b2 :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b2 i M = M * (5^(4*i-3) + 5^(4*i))"
 
-definition
+definition b2_last :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b2_last i M = M * (5^(4*i-3) + 1)"
 
-definition
+definition b3 :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b3 i M =  M * (5^(4*i-4) + 5^(4*i-2))"
 
-definition
+definition b4 :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" where
   "b4 i M a = a + M * (5^(4*i-2) + 5^(4*i-1) + 5^(4*i))"
 
-definition
+definition b4_last :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" where
   "b4_last i M a = a + M * (5^(4*i-2) + 5^(4*i-1) + 1)"
 
-definition
+definition b5 :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b5 i M = M * (5^(4*i-1))"
 
 fun rec_bhle where
   "rec_bhle i M [] = []" |
-  "rec_bhle i M (a#[]) = [b1 i a M, b2_last i M, b3 i M, b4_last i M a, b5 i M]" |
-  "rec_bhle i M (a # as) = [b1 i a M, b2 i M, b3 i M, b4 i M a, b5 i M] @ (rec_bhle (i+1) M as)"
+  "rec_bhle i M (a # []) = [b1 i M a, b2_last i M, b3 i M, b4_last i M a, b5 i M]" |
+  "rec_bhle i M (a # as) = [b1 i M a, b2 i M, b3 i M, b4 i M a, b5 i M] @ (rec_bhle (i+1) M as)"
 
 definition gen_bhle :: "int list \<Rightarrow> int vec" where
-  "gen_bhle as = vec_of_list (rec_bhle 0 (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) as)"
+  "gen_bhle as = vec_of_list (rec_bhle 1 (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) as)"
 
-
+(*
+try this out
+value "(2*(\<Sum>i<length [1,2::nat]. \<bar>[1,2::nat]!i\<bar>)+1)"
+value "b1 1 7 1"
+value "b4_last 2 7 2"
+value "rec_bhle 1 7 [1,2::nat]"
+*)
 
 definition reduce_bhle_partition:: "(int list) \<Rightarrow> ((int vec) * int)" where
   "reduce_bhle_partition \<equiv> (\<lambda> a. (gen_bhle a, 1))"
@@ -140,6 +146,10 @@ next
   then show ?case using split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)] by auto
 qed
 
+lemma length_rec_bhle:
+  "length (rec_bhle i M a) = 5 * (length a)"
+by (induct a arbitrary: i rule: induct_list012, auto)
+
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -147,8 +157,66 @@ text \<open>Well-definedness of reduction function\<close>
 lemma well_defined_reduction_subset_sum:
   assumes "a \<in> partition_problem"
   shows "reduce_bhle_partition a \<in> bhle"
-
-sorry
+using assms unfolding partition_problem_def reduce_bhle_partition_def bhle_def
+proof (safe, goal_cases)
+  case (1 I)
+  have "length a > 0" sorry
+  define x::"int vec" where "x = vec_of_list (concat (replicate (length a) [1,-1,0,0,-1]))"
+  have "dim_vec x = 5 * length a" unfolding x_def by (induct a , auto)
+  then have "0 < dim_vec x" using \<open>length a > 0\<close> by auto
+  define n where "n = length a"
+  define M where "M = 2*(\<Sum>i<length a. \<bar>a!i\<bar>)+1"
+  have "(gen_bhle a) \<bullet> x = 0"
+  proof -
+    have "(gen_bhle a) \<bullet> x = (\<Sum>i\<in>{1..<n}. (b1 i M (a!(i-1))) - (b2 i M) - (b5 i M)) + 
+              (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)" sorry
+    also have "\<dots> = (\<Sum>i\<in>{1..<n}. (a!(i-1)) + M * 5^(4*i-4) - M * 5^(4*i)) +
+                    (a!(n-1)) + M * 5^(4*n-4) - M" sorry
+    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{1..<n}. 5^(4*i)) - 1)" sorry
+    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))" sorry
+    also have "\<dots> = (\<Sum>i<n. a!i)" sorry
+    also have "\<dots> = 0" sorry
+    finally show ?thesis by blast
+  qed
+  moreover have "dim_vec x = dim_vec (gen_bhle a)" 
+  proof -
+    have "length (concat (replicate (length a) [1,-1,0,0,-1])) = 5 * (length a)" 
+      by (induct a, auto)
+    moreover have "length (rec_bhle 1 (2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1) a) = 5 * (length a)" 
+      using length_rec_bhle by auto
+    ultimately have "length (concat (replicate (length a) [1,-1,0,0,-1])) = 
+          length (rec_bhle 1 (2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1) a)" by auto
+    then show ?thesis unfolding x_def gen_bhle_def by simp
+  qed
+  moreover have "x \<noteq> 0\<^sub>v (dim_vec x)"
+  proof (rule ccontr)
+    assume "\<not> x \<noteq> 0\<^sub>v (dim_vec x)"
+    then have "x = 0\<^sub>v (dim_vec x)" by auto
+    have "x $ 0 = 0" using \<open>dim_vec x >0\<close>
+      by (subst \<open>x=0\<^sub>v (dim_vec x)\<close>) (subst index_zero_vec[of 0], auto)
+    moreover have "x $ 0 \<noteq> 0" 
+    proof -
+      have first: "vec_of_list (concat (replicate (length a) [1, - 1, 0, 0, - 1])) $ 0 = 1"
+        by (subst vec_of_list_index)
+           (metis Suc_pred \<open>0 < length a\<close> append_Cons concat.simps(2) nth_Cons_0 replicate_Suc)
+      show ?thesis by (simp add: first x_def)
+    qed
+    ultimately show False by auto
+  qed
+  moreover have "infnorm x \<le> 1"
+  proof -
+    let ?x_list = "concat (replicate (length a) [1, - 1, 0, 0, - 1])"
+    have set: "set (?x_list) = {-1,0,1}" using \<open>length a > 0\<close> by auto
+    have "?x_list ! i \<in> {-1,0,1}" if "i< length ?x_list" for i
+      using nth_mem[OF that] apply (subst set[symmetric]) sorry
+    then have "x$i\<in>{-1,0,1}" if "i<dim_vec x" for i using that unfolding x_def
+      by (smt (z3) dim_vec_of_list vec_of_list_index)
+    then have "\<bar>x$i\<bar>\<le>1" if "i<dim_vec x" for i using that by fastforce
+    then show ?thesis unfolding infnorm_def 
+      by (subst Max_le_iff, auto simp add: exI[of "(\<lambda>i. dim_vec x > i)" 0] \<open>dim_vec x > 0\<close>)
+  qed
+  ultimately show ?case by blast
+qed
 
 
 
