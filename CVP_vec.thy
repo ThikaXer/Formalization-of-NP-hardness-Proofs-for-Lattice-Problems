@@ -68,9 +68,33 @@ qed
 
 
 lemma linf_norm_vec_Max:
-  "\<parallel>v\<parallel>\<^sub>\<infinity> = Max {\<bar>v$i\<bar> | i. i< dim_vec v}"
-unfolding linf_norm_vec_def  sorry
+  "\<parallel>v\<parallel>\<^sub>\<infinity> = Max (insert 0 {\<bar>v$i\<bar> | i. i< dim_vec v})"
+proof (induct v)
+  case (vCons a v)
+  have "Missing_Lemmas.max_list (map abs (list_of_vec (vCons a v)) @ [0]) =
+    Missing_Lemmas.max_list ((\<bar>a\<bar>) # (map abs (list_of_vec v) @ [0]))" by auto
+  also have "\<dots> = max (\<bar>a\<bar>) (\<parallel>v\<parallel>\<^sub>\<infinity>)" unfolding linf_norm_vec_def by (cases v, auto)
+  also have "\<dots> = max (\<bar>a\<bar>) (Max (insert 0 {\<bar>v$i\<bar> | i. i< dim_vec v}))" using vCons by auto
+  also have "\<dots> = Max (insert (\<bar>a\<bar>) (insert 0 {\<bar>v$i\<bar> | i. i< dim_vec v}))" by auto
+  also have "\<dots> = Max (insert 0 (insert (\<bar>a\<bar>) {\<bar>v$i\<bar> | i. i< dim_vec v}))"
+    by (simp add: insert_commute)
+  also have "insert (\<bar>a\<bar>){\<bar>v$i\<bar> | i. i< dim_vec v} = 
+    {\<bar>(vCons a v)$i\<bar> | i. i< dim_vec (vCons a v)}"
+  proof (safe, goal_cases)
+    case (1 x)
+    show ?case by (subst exI[of _ "0"], auto)
+  next
+    case (2 x i)
+    then show ?case by (subst exI[of _ "Suc i"]) 
+      (use vec_index_vCons_Suc[of a v i, symmetric] in \<open>auto\<close>)
+  next
+    case (3 x i)
+    then show ?case by (subst vec_index_vCons) (subst exI[of _ "i-1"], auto)
+  qed
+  finally show ?case unfolding linf_norm_vec_def by auto
+qed auto
 
+find_theorems "insert (insert _)"
 
 lemma set_compr_elem: 
   assumes "finite A" "a\<in>A"
@@ -132,19 +156,19 @@ unfolding gen_t_def by (subst  Bx_rewrite[OF assms], auto)
 lemma linf_norm_vec_Bx_s:
   assumes x_dim: "dim_vec as = dim_vec x"
   shows "linf_norm_vec ((gen_basis as) *\<^sub>v x - (gen_t as s)) = 
-    Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 })"
+    Max (insert 0 ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<dim_vec as+2 }))"
 proof -
   let ?init_vec = "(gen_basis as) *\<^sub>v x - (gen_t as s)"
   let ?goal_vec = "vec (dim_vec as + 2) (\<lambda> i. if i = 0 then  (x \<bullet> as - s - 1) else (
       if i = 1 then  (x \<bullet> as - s + 1) else  (2 * x$(i-2) - 1)))"
   define n where n_def: "n = dim_vec as"
   have "linf_norm_vec ?init_vec = linf_norm_vec ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
-  also have "\<dots> = Max {\<bar>?goal_vec $i\<bar> | i. i<n+2}" 
+  also have "\<dots> = Max (insert 0 {\<bar>?goal_vec $i\<bar> | i. i<n+2})" 
     unfolding linf_norm_vec_Max n_def by auto
-  also have "\<dots> = Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
+  also have "\<dots> = Max (insert 0 ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> 
                        { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-                       { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2})"
+                       { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2}))"
   proof -
     have "{\<bar>?goal_vec $i\<bar> | i. i<n+2} = 
       {\<bar>?goal_vec $0\<bar>} \<union> {\<bar>?goal_vec $1\<bar>} \<union> {\<bar>?goal_vec $i\<bar> | i. 1<i \<and> i<n+2}" 
@@ -274,8 +298,8 @@ proof -
   unfolding B_def b_def reduce_cvp_subset_sum_def
   by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
   have "linf_norm_vec (B *\<^sub>v x - b) = 
-    Max ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
-      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+    Max (insert 0 ({ \<bar>x \<bullet> as - s - 1\<bar>} \<union> { \<bar>x \<bullet> as - s + 1\<bar>} \<union> 
+      { \<bar>2*x$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 }))"
   unfolding B_def b_def reduce_cvp_subset_sum_def 
   by (auto simp add: linf_norm_vec_Bx_s[OF x_dim[symmetric]] n_def)
   also have  "\<dots> \<le> r"
@@ -325,12 +349,12 @@ proof -
       if i = 1 then  (zs \<bullet> as - s + 1) else  (2 * zs$(i-2) - 1)))"
     (is "?init_vec = ?goal_vec")
   unfolding v_def B_def b_def using Bx_s_rewrite[OF zs_dim[symmetric]] n_def by simp
-  have linf_norm_vec_ineq: "linf_norm_vec (v-b) = Max ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
-    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union> { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })"
+  have linf_norm_vec_ineq: "linf_norm_vec (v-b) = Max (insert 0 ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union> { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 }))"
   unfolding v_def B_def b_def using linf_norm_vec_Bx_s[OF zs_dim[symmetric]] n_def by simp
 
-  have Max_le_1: "Max ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
-    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 })\<le>1"
+  have Max_le_1: "Max (insert 0 ({ \<bar>zs \<bullet> as - s - 1\<bar>} \<union> 
+    { \<bar>zs \<bullet> as - s + 1\<bar>} \<union>  { \<bar>2*zs$(i-2)-1\<bar> | i. 1<i \<and> i<n+2 }))\<le>1"
   using ineq by (subst linf_norm_vec_ineq[symmetric])
   have "\<bar>2*zs$(i-2)-1\<bar>\<le>1" if "1<i \<and> i<n+2" for i using Max_le_1 that by auto
   then have "zs$(i-2) = 0 \<or> zs$(i-2) = 1" if "1<i \<and> i<n+2" for i
