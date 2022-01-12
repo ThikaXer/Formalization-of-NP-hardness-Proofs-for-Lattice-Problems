@@ -11,7 +11,7 @@ text \<open>Bounded Homogeneous Linear Equation Problem\<close>
 
 definition bhle :: "(int vec * int) set" where
   "bhle \<equiv> {(a,k). \<exists>x. a \<bullet> x = 0 \<and> dim_vec x = dim_vec a \<and> 
-      x \<noteq> 0\<^sub>v (dim_vec x) \<and> infnorm x \<le> k}"
+      x \<noteq> 0\<^sub>v (dim_vec x) \<and> \<parallel>x\<parallel>\<^sub>\<infinity> \<le> k}"
 
 text \<open>Reduction of bounded homogeneous linear equation to partition problem\<close>
 (*Remember: i runs from 1 to n=length a*)
@@ -170,14 +170,55 @@ proof (safe, goal_cases)
   proof -
     have "(gen_bhle a) \<bullet> x = (\<Sum>i\<in>{1..<n}. (b1 i M (a!(i-1))) - (b2 i M) - (b5 i M)) + 
               (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)" unfolding gen_bhle_def sorry
-    also have "\<dots> = (\<Sum>i\<in>{1..<n}. (a!(i-1)) + M * 5^(4*i-4) - M * 5^(4*i)) +
-                    (a!(n-1)) + M * 5^(4*n-4) - M" unfolding b1_def b2_def b5_def b2_last_def 
-      apply simp sorry
-    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{1..<n}. 5^(4*i)) - 1)" sorry
-    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))" sorry
+    also have "\<dots> = (\<Sum>i\<in>{1..<n}. (a!(i-1)) + (M * 5^(4*i-4) - M * 5^(4*i))) +
+                    (a!(n-1)) + M * 5^(4*n-4) - M" 
+      unfolding b1_def b2_def b5_def b2_last_def n_def 
+      by (subst distrib_left)+ (simp) 
+    also have "\<dots> = (\<Sum>i\<in>{1..<n}. (a!(i-1))) + (a!(n-1)) + 
+      (\<Sum>i\<in>{1..<n}. M * 5^(4*i-4) - M * 5^(4*i)) + M * 5^(4*n-4) - M"
+      by (subst sum.distrib[of "(\<lambda>i. a ! (i - 1))" "(\<lambda>i. M * 5 ^ (4 * i - 4) - M * 5 ^ (4 * i))" 
+        "{1..<n}"], simp)
+    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{1..<n}. 5^(4*i)) - 1)"
+    proof -
+      have "(\<Sum>i\<in>{1..<n}. (a!(i-1))) = (\<Sum>i<n-1. (a!i))" 
+        using \<open>length a > 0\<close> 
+        by (metis (mono_tags, lifting) add_diff_cancel_left' atLeast0LessThan o_def plus_1_eq_Suc 
+        sum.atLeastLessThan_shift_0 sum.cong)
+      then have "(\<Sum>i\<in>{1..<n}. (a!(i-1))) + (a!(n-1)) = (\<Sum>i<n. (a!i))"
+        by (metis One_nat_def Suc_pred \<open>0 < length a\<close> n_def sum.lessThan_Suc)
+      moreover{ 
+        have "(\<Sum>i=1..<n. M * 5 ^ (4 * i - 4) - M * 5 ^ (4 * i)) + M * 5 ^ (4 * n - 4) - M = 
+          M * ((\<Sum>i=1..<n. 5 ^ (4 * i - 4) - 5 ^ (4 * i)) + 5 ^ (4 * n - 4) - 1)"
+        using \<open>length a > 0\<close> n_def 
+          apply (subst right_diff_distrib[symmetric, of M])
+          apply (subst sum_distrib_left[symmetric])
+          apply (subst distrib_left[of M, symmetric])
+          by (simp add: right_diff_distrib)
+        moreover have "(\<Sum>i=1..<n. 5 ^ (4 * i - 4) - 5 ^ (4 * i)) =
+          (\<Sum>i=1..<n. 5 ^ (4 * i - 4)) - (\<Sum>i=1..<n. 5 ^ (4 * i))" 
+          using sum_subtractf[of "(\<lambda>i. 5 ^ (4 * i - 4))" "(\<lambda>i. 5 ^ (4 * i))" "{1..<n}"]
+            sorry
+        moreover have "(\<Sum>i=1..<n. 5 ^ (4 * i - 4)) + 5 ^ (4 * n - 4) =
+          (\<Sum>i = 1..<n + 1. 5 ^ (4 * i - 4))" using \<open>length a > 0\<close> n_def by auto
+        ultimately have "(\<Sum>i=1..<n. M* 5 ^ (4*i - 4) - M* 5 ^ (4*i)) + M* 5 ^ (4*n - 4) - M = 
+          M * ((\<Sum>i = 1..<n + 1. 5 ^ (4 * i - 4)) - (\<Sum>i = 1..<n. 5 ^ (4 * i)) - 1)"
+          using \<open>length a > 0\<close> n_def by auto
+      }
+      ultimately show ?thesis by auto
+    qed
+    also have "\<dots> = (\<Sum>i<n. a!i) + M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))"
+    proof -
+      have "(\<Sum>i = 1..<n + 1. 5 ^ (4 * i - 4)) = (\<Sum>i = 0..<n. 5 ^ (4 * i))" sorry
+      moreover have "(\<Sum>i = 1..<n. 5 ^ (4 * i)) + 1 = (\<Sum>i\<in>{0..<n}. 5^(4*i))" sorry
+      ultimately show ?thesis by (smt (verit, del_insts))
+    qed
     also have "\<dots> = (\<Sum>i<n. a!i)" sorry
     also have "\<dots> = 0" sorry
     finally show ?thesis by blast
+
+find_theorems "sum _ _ = sum _ _ - sum _ _"
+thm mult_1_right[of "-M", symmetric]
+
   qed
   moreover have "dim_vec x = dim_vec (gen_bhle a)" 
   proof -
@@ -200,11 +241,11 @@ proof (safe, goal_cases)
       have first: "vec_of_list (concat (replicate (length a) [1, - 1, 0, 0, - 1])) $ 0 = 1"
         by (subst vec_of_list_index)
            (metis Suc_pred \<open>0 < length a\<close> append_Cons concat.simps(2) nth_Cons_0 replicate_Suc)
-      show ?thesis by (simp add: first x_def)
+      show ?thesis by (smt (z3) first x_def)
     qed
     ultimately show False by auto
   qed
-  moreover have "infnorm x \<le> 1"
+  moreover have "\<parallel>x\<parallel>\<^sub>\<infinity> \<le> 1"
   proof -
     let ?x_list = "concat (replicate (length a) [1, - 1, 0, 0, - 1])"
     have set: "set (?x_list) = {-1,0,1}" using \<open>length a > 0\<close> by auto
@@ -213,7 +254,7 @@ proof (safe, goal_cases)
     then have "x$i\<in>{-1,0,1}" if "i<dim_vec x" for i using that unfolding x_def
       by (smt (z3) dim_vec_of_list vec_of_list_index)
     then have "\<bar>x$i\<bar>\<le>1" if "i<dim_vec x" for i using that by fastforce
-    then show ?thesis unfolding infnorm_def 
+    then show ?thesis unfolding linf_norm_vec_Max 
       by (subst Max_le_iff, auto simp add: exI[of "(\<lambda>i. dim_vec x > i)" 0] \<open>dim_vec x > 0\<close>)
   qed
   ultimately show ?case by blast
