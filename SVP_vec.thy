@@ -10,13 +10,13 @@ text \<open>The reduction of SVP to CVP in $l_\infty$ norm\<close>
 
 text \<open>The shortest vector problem.\<close>
 definition is_shortest_vec :: "int_lattice  \<Rightarrow> int vec \<Rightarrow> bool" where
-  "is_shortest_vec L v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. infnorm x \<ge> infnorm v \<and> v\<in>L) "
+  "is_shortest_vec L v \<equiv> (is_lattice L) \<and> (\<forall>x\<in>L. \<parallel>x\<parallel>\<^sub>\<infinity> \<ge> \<parallel>v\<parallel>\<^sub>\<infinity> \<and> v\<in>L) "
 
 
 text \<open>The decision problem associated with solving SVP exactly.\<close>
 definition gap_svp :: "(int_lattice \<times> int) set" where
   "gap_svp \<equiv> {(L, r). (is_lattice L) \<and> (dim_lattice L \<ge> 2) \<and> 
-      (\<exists>v\<in>L. infnorm v \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
+      (\<exists>v\<in>L. \<parallel>v\<parallel>\<^sub>\<infinity> \<le> r \<and> v \<noteq> 0\<^sub>v (dim_vec v))}"
 
 text \<open>Generate a lattice to solve SVP for reduction\<close>
 
@@ -171,7 +171,7 @@ using assms unfolding bhle_def
 proof (safe, goal_cases)
 case (1 v)
   have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1 by auto
-  then have "infnorm v > 0" unfolding infnorm_def using 1 by (subst Max_gr_iff, auto)
+  then have "\<parallel>v\<parallel>\<^sub>\<infinity> > 0" unfolding linf_norm_vec_Max using 1 by (subst Max_gr_iff, auto)
   then show ?thesis using 1 by auto
 qed 
 
@@ -180,11 +180,11 @@ lemma svp_k_pos:
   shows "k>0"
 proof -
   obtain v where v_in_lattice: "v\<in>gen_lattice (gen_svp_basis a k)" 
-    and infnorm_v: "infnorm v \<le> k" 
+    and infnorm_v: "\<parallel>v\<parallel>\<^sub>\<infinity> \<le> k" 
     and v_nonzero:  "v \<noteq> 0\<^sub>v (dim_vec v)" 
     using assms unfolding reduce_svp_bhle_def gap_svp_def by force
   have "\<exists> i < dim_vec v. \<bar>v $ i\<bar> > 0" using v_nonzero by auto
-  then have "infnorm v > 0" unfolding infnorm_def by (subst Max_gr_iff, auto)
+  then have "\<parallel>v\<parallel>\<^sub>\<infinity> > 0" unfolding linf_norm_vec_Max by (subst Max_gr_iff, auto)
   then show ?thesis using infnorm_v by auto
 qed
 
@@ -267,18 +267,19 @@ next
     using 3(2) unfolding gen_svp_basis_def by auto
   then have "v \<in> gen_lattice (gen_svp_basis a k)"  
     unfolding v_def gen_lattice_def by auto
-  moreover have "infnorm v \<le> k" 
+  moreover have "\<parallel>v\<parallel>\<^sub>\<infinity> \<le> k" 
   proof -
-    have "infnorm v \<le> infnorm x" 
-    proof (subst eigen_v, auto simp add: infnorm_def, subst Max.boundedI, goal_cases _ _ three)
+    have "\<parallel>v\<parallel>\<^sub>\<infinity> \<le> \<parallel>x\<parallel>\<^sub>\<infinity>" 
+    proof (subst eigen_v, subst linf_norm_vec_Max,subst linf_norm_vec_Max, subst Max.boundedI, 
+      goal_cases _ _ three)
     case (three b)
       have dim_x_nonzero: "dim_vec x \<noteq> 0" using 3(3) by auto
       then have nonempty: "(\<exists>a\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> a)"
         using abs_ge_zero by blast
-      have " \<bar>x $ i\<bar> \<le> Max {\<bar>x $ j\<bar> |j. j < dim_vec x}" 
+      have " \<bar>x $ i\<bar> \<le> Max (insert 0 {\<bar>x $ j\<bar> |j. j < dim_vec x})" 
         if "i < dim_vec x" for i 
       using that by (subst Max_ge, auto)
-      moreover have "0 \<le> Max {\<bar>x $ i\<bar> |i. i < dim_vec x}" using 3 nonempty
+      moreover have "0 \<le> Max (insert 0 {\<bar>x $ i\<bar> |i. i < dim_vec x})" using 3 nonempty
         by (subst Max_ge_iff, auto)
       ultimately show ?case using three by auto
     qed auto
@@ -320,7 +321,7 @@ proof (cases "(\<Sum>i<dim_vec a. a$i) = 0")
     have "\<exists>i< dim_vec x. x $ i \<noteq> 0" unfolding x_def using \<open>k>0\<close> a_nonempty by auto
     then show ?thesis using vec_eq_iff[of "x" "0\<^sub>v (dim_vec x)"] by auto
   qed 
-  moreover have "real_of_int (infnorm x) \<le> k"
+  moreover have "real_of_int (\<parallel>x\<parallel>\<^sub>\<infinity>) \<le> k"
   proof -
     have "vec (dim_vec a) (\<lambda>i. k) $ j = k" if "j < dim_vec a" for j using that by auto
     then have "Max {\<bar>vec (dim_vec a) (\<lambda>i. k) $ i\<bar> |i. i < dim_vec a} = 
@@ -329,7 +330,7 @@ proof (cases "(\<Sum>i<dim_vec a. a$i) = 0")
       by (smt (verit, best) Collect_cong singleton_conv)
     also have "\<dots> = k" by auto
     finally have "Max {\<bar>vec (dim_vec a) (\<lambda>i. k) $ i\<bar> |i. i < dim_vec a} = k" by blast
-    then show ?thesis unfolding x_def infnorm_def using \<open>k>0\<close> by auto 
+    then show ?thesis unfolding x_def linf_norm_vec_Max using \<open>k>0\<close> by auto 
   qed
   ultimately show ?thesis using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def by auto
 next
@@ -338,10 +339,10 @@ next
   proof (safe, goal_cases)
     case (1 v)
     have a_nonempty: "dim_vec a > 0" using svp_dim_vec_a[OF assms] by auto  
-    have "k>0"  unfolding infnorm_def
+    have "k>0"  unfolding linf_norm_vec_Max
     proof -
       have "\<exists>i<dim_vec v. \<bar>v $ i\<bar> > 0" using 1 by auto
-      then have "infnorm v > 0" unfolding infnorm_def by (subst Max_gr_iff, auto)
+      then have "\<parallel>v\<parallel>\<^sub>\<infinity> > 0" unfolding linf_norm_vec_Max by (subst Max_gr_iff, auto)
       then show ?thesis using 1 by auto
     qed
     then have "k\<ge>1" by auto
@@ -355,7 +356,7 @@ next
     have v_eq_z_upto_last: "v $ i = z $ i" if "i< dim_vec a" for i 
       by (subst z_def) (subst gen_svp_basis_mult; use that z_def in \<open>auto\<close>)
     have v_le_k: "\<bar>v $ i\<bar> \<le> k" if "i< dim_vec a + 1" for i
-      using 1 dim_v_dim_a that unfolding infnorm_def
+      using 1 dim_v_dim_a that unfolding linf_norm_vec_Max
       using Max_le_iff[of "{\<bar>v $ i\<bar> |i. i < dim_vec v}" k]
       by fastforce
     then have z_le_k: "\<bar>z $ i\<bar> \<le> k" if "i< dim_vec a" for i
@@ -506,29 +507,34 @@ next
       then have "\<exists>i< dim_vec a. x$i \<noteq> 0" using x_def \<open>i<dim_vec a\<close> by auto
       then show ?thesis using x_def by auto
     qed
-    moreover have "infnorm x \<le> k"
+    moreover have "\<parallel>x\<parallel>\<^sub>\<infinity> \<le> k"
     proof - 
       have "\<bar>z$i\<bar> = \<bar>vec (dim_vec a) (($) z) $ i\<bar>" if "i < dim_vec a" for i using that by auto
-      then have "Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a} =
-            Max {\<bar>z $ i\<bar> |i. i < dim_vec a}" 
+      then have "Max (insert 0 {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
+            Max (insert 0 {\<bar>z $ i\<bar> |i. i < dim_vec a})" 
         by (smt (z3) Collect_cong Setcompr_eq_image mem_Collect_eq)
-      also have "\<dots> = Max {\<bar>z $ i\<bar> |i. i < dim_vec a + 1}" 
+      also have "\<dots> = Max (insert 0 {\<bar>z $ i\<bar> |i. i < dim_vec a + 1})" 
       proof -
-        have "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} \<ge> 0" 
-          using \<open>dim_vec a >0\<close> by (subst Max_ge_iff, auto)
-        then have "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} \<ge> \<bar>z$dim_vec a\<bar>"
-          using z_last_zero by simp
-        then have "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} = 
-          Max (insert ( \<bar>z$dim_vec a\<bar>) {\<bar>z $ i\<bar> |i. i < dim_vec a})"
-          using \<open>dim_vec a > 0\<close> by (subst Max_insert, auto)
+        have "Max (insert 0 {\<bar>z $ i\<bar> |i. i < dim_vec a}) = 
+          Max (insert 0 (insert ( \<bar>z$dim_vec a\<bar>) {\<bar>z $ i\<bar> |i. i < dim_vec a}))"
+        proof -
+          have "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} \<ge> 0" 
+            using \<open>dim_vec a >0\<close> by (subst Max_ge_iff, auto)
+          then have "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} \<ge> \<bar>z$dim_vec a\<bar>"
+            using z_last_zero by simp
+          then have max_subst: "Max {\<bar>z $ i\<bar> |i. i < dim_vec a} = 
+              Max (insert \<bar>z $ dim_vec a\<bar> {\<bar>z $ i\<bar> |i. i < dim_vec a})" 
+            using \<open>dim_vec a > 0\<close> by (subst Max_insert)+ (auto)
+          then show ?thesis using \<open>dim_vec a > 0\<close> by (subst Max_insert)+ (auto)
+        qed
         then show ?thesis 
           using insert_set_comprehension[of "(\<lambda>i. \<bar>z $ i\<bar>)" "dim_vec a"] by auto
       qed
-      finally have "Max {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a} =
-                    Max {\<bar>z $ i\<bar> |i. i < dim_vec a +1}"
+      finally have "Max (insert 0 {\<bar>vec (dim_vec a) (($) z) $ i\<bar> |i. i < dim_vec a}) =
+                    Max (insert 0 {\<bar>z $ i\<bar> |i. i < dim_vec a +1})"
         by blast
-      then have "real_of_int (infnorm x) = infnorm v" 
-        using x_def z_def v_real_z unfolding infnorm_def by auto
+      then have "\<parallel>x\<parallel>\<^sub>\<infinity> = \<parallel>v\<parallel>\<^sub>\<infinity>" unfolding linf_norm_vec_Max
+        using x_def z_def v_real_z  by auto
       then show ?thesis using 1 by auto
     qed
     ultimately show ?case by blast
