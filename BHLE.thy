@@ -110,7 +110,7 @@ lemma length_b_list_last:
   "length (b_list_last a n M) = 5" unfolding b_list_last_def by auto
 
 lemma length_concat_map_b_list:
-  "length (concat (map (\<lambda>i. b_list as i M) [0..<length as-1])) = 5 * (length as -1)"
+  "length (concat (map (\<lambda>i. b_list as i M) [0..<k])) = 5 * k"
 by (subst length_concat)(simp add: comp_def length_b_list sum_list_triv) 
 
 (*Last values of gen_bhle*)
@@ -197,7 +197,37 @@ lemma b_list_nth:
   assumes "i<length as-1" "j<5"
   shows "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) ! (i * 5 + j) = 
       b_list as i M ! j"
-  sorry
+proof -
+  have "map (\<lambda>i. b_list as i M) [0..<length as - 1] = 
+        map (\<lambda>i. b_list as i M) [0..<i] @
+        map (\<lambda>i. b_list as i M) [i..<length as - 1]"
+    using assms
+    by (metis append_self_conv2 less_zeroE linorder_neqE_nat map_append upt.simps(1) upt_append)
+  then have "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) =
+        concat (map (\<lambda>i. b_list as i M) [0..<i]) @
+        concat (map (\<lambda>i. b_list as i M) [i..<length as - 1])"
+    by (subst concat_append[of "map (\<lambda>i. b_list as i M) [0..<i]" 
+      "map (\<lambda>i. b_list as i M) [i..<length as -1]", symmetric], auto)
+  moreover have "concat (map (\<lambda>i. b_list as i M) [i..<length as - 1]) =
+    (b_list as i M @ concat (map (\<lambda>i. b_list as i M) [i+1..<length as - 1]))" 
+    using assms upt_conv_Cons by fastforce
+  ultimately have concat_unfold: "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) =
+        concat (map (\<lambda>i. b_list as i M) [0..<i]) @
+        (b_list as i M @ concat (map (\<lambda>i. b_list as i M) [i+1..<length as - 1]))"
+    by auto
+  have "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) ! (i * 5 + j) =
+    (b_list as i M @ concat (map (\<lambda>i. b_list as i M) [i+1..<length as - 1])) ! j"
+    unfolding concat_unfold 
+    by (subst nth_append_length_plus[of "concat (map (\<lambda>i. b_list as i M) [0..<i])" 
+      "b_list as i M @ concat (map (\<lambda>i. b_list as i M) [i + 1..<length as - 1])" j, symmetric])
+       (subst length_concat_map_b_list, simp add: mult.commute)
+  moreover have "(b_list as i M @ concat (map (\<lambda>i. b_list as i M) [i+1..<length as - 1])) ! j =
+    b_list as i M ! j" using assms length_b_list
+    by (subst nth_append[of "b_list as i M" "concat (map (\<lambda>i. b_list as i M) 
+      [i+1..<length as - 1])" j], auto)
+  ultimately show ?thesis by auto
+qed
+
 
 lemma b_list_nth0:
   assumes "i<length as-1"
@@ -419,23 +449,7 @@ next
 qed
 
 
-lemma gen_bhle_in_I:
-  assumes "i\<in>I-{n-1}"
-  shows "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) = 
-          (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)"
-sorry
 
-lemma gen_bhle_not_in_I:
-  assumes "i\<in>{0..<n}-I-{n-1}"
-  shows "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
-          (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)"
-sorry
-
-lemma gen_bhle_last:
-  "(\<Sum>j=0..<5. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j)) =
-    (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
-          else (b3 n M)  - (b4_last n M (a!(n-1))) + (b5 n M))"
-sorry
 
 
 (*
@@ -468,6 +482,112 @@ proof (safe, goal_cases)
     by (induct a , auto)
   then have "0 < dim_vec x" using \<open>length a > 0\<close> by auto
   define M where "M = 2*(\<Sum>i<length a. \<bar>a!i\<bar>)+1"
+
+(*lemmas for proof*)
+  have x_nth: 
+    "x $ (i*5+j) = (if i\<in>I then plus_x ! j else minus_x ! j)" if "i<n" "j<5" for i j 
+  proof -
+    have len_rew: "i*5 = length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i]))"
+      unfolding plus_x_def minus_x_def sorry
+    have map_rew: "map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n] =
+          map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i] @
+          map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n]"
+    using that(1) sorry
+    have "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n]) ! (i * 5 + j) =
+          concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n]) ! j"
+     by (subst map_rew, subst concat_append, subst len_rew)
+        (subst nth_append_length_plus[of 
+          "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i])"], simp)
+    also have "\<dots> = (if i \<in> I then plus_x!j else minus_x!j)" sorry
+    finally show ?thesis unfolding x_def by (subst vec_index_vec_of_list, auto)
+  qed
+
+find_theorems nth append
+  
+  have x_nth0:
+    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n" for i sorry
+
+  have gen_bhle_in_I:
+    "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) = 
+     (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" if "i\<in>I-{length a-1}" for i
+  proof -
+    have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+            (gen_bhle a) $ (i*5) * x $ (i*5) +
+            (gen_bhle a) $ (i*5+1) * x $ (i*5+1) +
+            (gen_bhle a) $ (i*5+2) * x $ (i*5+2) +
+            (gen_bhle a) $ (i*5+3) * x $ (i*5+3) +
+            (gen_bhle a) $ (i*5+4) * x $ (i*5+4)"
+      by (simp add: eval_nat_numeral)
+    also have "\<dots> = (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" 
+    using that 1 n_def \<open>length a > 0\<close>
+    apply (subst gen_bhle_0[of i a], fastforce)
+    apply (subst gen_bhle_1[of i a], fastforce)
+    apply (subst gen_bhle_2[of i a], fastforce)
+    apply (subst gen_bhle_3[of i a], fastforce)
+    apply (subst gen_bhle_4[of i a], fastforce)
+    apply (subst x_nth[of i], fastforce, fastforce)+
+    apply (subst x_nth0[of i], fastforce)
+    apply (unfold M_def plus_x_def)
+    apply (simp add: eval_nat_numeral) 
+    done
+    finally show ?thesis by auto
+  qed
+
+  have gen_bhle_not_in_I:
+    "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+     (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" if  "i\<in>{0..<n}-I-{n-1}" for i
+  proof -
+    have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+            (gen_bhle a) $ (i*5) * x $ (i*5) +
+            (gen_bhle a) $ (i*5+1) * x $ (i*5+1) +
+            (gen_bhle a) $ (i*5+2) * x $ (i*5+2) +
+            (gen_bhle a) $ (i*5+3) * x $ (i*5+3) +
+            (gen_bhle a) $ (i*5+4) * x $ (i*5+4)"
+      by (simp add: eval_nat_numeral)
+    also have "\<dots> = (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" 
+    using that 1 n_def \<open>length a > 0\<close>
+    apply (subst gen_bhle_0[of i a], fastforce)
+    apply (subst gen_bhle_1[of i a], fastforce)
+    apply (subst gen_bhle_2[of i a], fastforce)
+    apply (subst gen_bhle_3[of i a], fastforce)
+    apply (subst gen_bhle_4[of i a], fastforce)
+    apply (subst x_nth[of i], fastforce, fastforce)+
+    apply (subst x_nth0[of i], fastforce)
+    apply (unfold M_def minus_x_def)
+    apply (simp add: eval_nat_numeral) 
+    done
+    finally show ?thesis by auto
+  qed
+
+  have gen_bhle_last:
+    "(\<Sum>j=0..<5. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j)) =
+     (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
+      else (b3 n M)  - (b4_last n M (a!(n-1))) + (b5 n M))"
+  proof -
+    have "(\<Sum>j=0..<5. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j)) =
+            (gen_bhle a) $ ((n-1)*5) * x $ ((n-1)*5) +
+            (gen_bhle a) $ ((n-1)*5+1) * x $ ((n-1)*5+1) +
+            (gen_bhle a) $ ((n-1)*5+2) * x $ ((n-1)*5+2) +
+            (gen_bhle a) $ ((n-1)*5+3) * x $ ((n-1)*5+3) +
+            (gen_bhle a) $ ((n-1)*5+4) * x $ ((n-1)*5+4)"
+      by (simp add: eval_nat_numeral)
+    also have "\<dots> = (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
+      else (b3 n M)  - (b4_last n M (a!(n-1))) + (b5 n M))" 
+    using 1 n_def \<open>length a > 0\<close> unfolding n_def
+    apply (subst gen_bhle_last0[of a])
+    apply (subst gen_bhle_last1[of a])
+    apply (subst gen_bhle_last2[of a])
+    apply (subst gen_bhle_last3[of a])
+    apply (subst gen_bhle_last4[of a]) using x_nth[of "n-1"]
+    apply (subst x_nth[of "length a-1"], simp add: n_def, linarith)+
+    apply (subst x_nth0[of "length a-1"], simp add: n_def)
+    apply (unfold M_def plus_x_def minus_x_def)
+    apply (auto simp add: eval_nat_numeral last_conv_nth) 
+    done
+    finally show ?thesis by auto
+  qed
+
+
   have "(gen_bhle a) \<bullet> x = 0"
   proof -
     have "(gen_bhle a) \<bullet> x = (\<Sum>i = 0..<n*5. (gen_bhle a) $ i * x $ i) "
