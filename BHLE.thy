@@ -46,11 +46,17 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
   "gen_bhle as = vec_of_list (concat (rec_bhle 1 (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) as))"
 *)
 
+definition b_list :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
+  "b_list as i M = [b1 (i+1) M (as!i), b2 (i+1) M, b3 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M]"
+
+definition b_list_last :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
+  "b_list_last as n M = [b1 n M (last as), b2_last n M, b3 n M, b4_last n M (last as), b5 n M]"
+
 definition gen_bhle :: "int list \<Rightarrow> int vec" where
 "gen_bhle as = (let M = 2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1; n = length as in
   vec_of_list (concat 
-  (map (\<lambda>i. [b1 (i+1) M (as!i), b2 (i+1) M, b3 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M]) [0..<n-1]) 
-  @ [b1 n M (last as), b2_last n M, b3 n M, b4_last n M (last as), b5 n M]))"
+  (map (\<lambda>i. b_list as i M) [0..<n-1]) 
+  @ b_list_last as n M))"
 
 
 (*
@@ -78,11 +84,12 @@ lemma dim_vec_gen_bhle:
 using assms 
 proof (induct as rule: list_nonempty_induct)
   case (single x)
-  then show ?case unfolding gen_bhle_def Let_def by auto
+  then show ?case unfolding gen_bhle_def Let_def b_list_def b_list_last_def by auto
 next
   case (cons x xs)
   define M where "M = (2 * (\<Sum>i<length (x # xs). \<bar>(x # xs) ! i\<bar>) + 1)"
-  then show ?case using cons unfolding gen_bhle_def Let_def M_def[symmetric]
+  then show ?case using cons unfolding gen_bhle_def b_list_def b_list_last_def 
+    Let_def M_def[symmetric]
     by (subst dim_vec_of_list)+ 
        (use length_concat_map_5[of 
       "(\<lambda>i. b1 (i + 1) M ((x#xs) ! i))"  
@@ -92,62 +99,196 @@ next
       "(\<lambda>i. b5 (i + 1) M             )"] in \<open>simp\<close>)
 qed
 
+
+
+(*Lemmas about length*)
+
+lemma length_b_list:
+  "length (b_list a i M) = 5" unfolding b_list_def by auto
+
+lemma length_b_list_last:
+  "length (b_list_last a n M) = 5" unfolding b_list_last_def by auto
+
+lemma length_concat_map_b_list:
+  "length (concat (map (\<lambda>i. b_list as i M) [0..<length as-1])) = 5 * (length as -1)"
+by (subst length_concat)(simp add: comp_def length_b_list sum_list_triv) 
+
 (*Last values of gen_bhle*)
 lemma gen_bhle_last0:
   "(gen_bhle as) $ ((length as -1) * 5) = 
     b1 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (last as)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  then show ?case
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (auto split: if_splits simp add: b_list_last_def)
+qed
+
 
 lemma gen_bhle_last1:
   "(gen_bhle as) $ ((length as -1) * 5 + 1) = 
     b2_last (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  then show ?case
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (auto split: if_splits simp add: b_list_last_def)
+qed
 
 lemma gen_bhle_last2:
   "(gen_bhle as) $ ((length as -1) * 5 + 2) = 
     b3 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  then show ?case
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (auto split: if_splits simp add: b_list_last_def)
+qed
+
 
 lemma gen_bhle_last3:
   "(gen_bhle as) $ ((length as -1) * 5 + 3) = 
     b4_last (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (last as)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  then show ?case
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (auto split: if_splits simp add: b_list_last_def)
+qed
 
 lemma gen_bhle_last4:
   "(gen_bhle as) $ ((length as-1) * 5 + 4) = 
     b5 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def Let_def  sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  then show ?case
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (auto split: if_splits simp add: b_list_last_def)
+qed
 
 (*Up to last values of gen_bhle*)
+
+lemma b_list_nth:
+  assumes "i<length as-1" "j<5"
+  shows "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) ! (i * 5 + j) = 
+      b_list as i M ! j"
+  sorry
+
+lemma b_list_nth0:
+  assumes "i<length as-1"
+  shows "concat (map (\<lambda>i. b_list as i M) [0..<length as - 1]) ! (i * 5) = 
+      b_list as i M ! 0"
+using b_list_nth[OF assms, of 0] by auto
+
 lemma gen_bhle_0:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5) = 
     b1 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (as!i)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+ 
+     (subst b_list_nth0[OF assms, of M], auto split: if_splits, simp add: b_list_def)
+qed
 
 lemma gen_bhle_1:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 1) = 
     b2 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (subst b_list_nth[OF assms, of 1 M], auto split: if_splits, simp add: b_list_def)
+qed
 
 lemma gen_bhle_2:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 2) = 
     b3 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (subst b_list_nth[OF assms, of 2 M], auto split: if_splits, simp add: b_list_def)
+qed
 
 lemma gen_bhle_3:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 3) = 
     b4 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (as!i)"
-unfolding gen_bhle_def sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (subst b_list_nth[OF assms, of 3 M], auto split: if_splits, simp add: b_list_def)
+qed
 
 lemma gen_bhle_4:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 4) = 
     b5 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-unfolding gen_bhle_def Let_def  sorry
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (subst b_list_nth[OF assms, of 4 M], auto split: if_splits, simp add: b_list_def)
+qed
 
 (*
 lemma gen_bhle_last:
@@ -438,6 +579,7 @@ proof (safe, goal_cases)
       using sum.atLeast_Suc_lessThan_Suc_shift[of "(\<lambda>i. 5^(4*i-4))" 0 n] by auto
     also have "\<dots> = 0" by auto
     finally show ?thesis by blast
+  qed
 
   moreover have "dim_vec x = dim_vec (gen_bhle a)" 
     using dim_vec_gen_bhle[OF \<open>a\<noteq>[]\<close>] dimx_eq_5dima by simp
@@ -449,14 +591,26 @@ proof (safe, goal_cases)
     have "x $ 4 = 0" using \<open>dim_vec x > 4\<close>
       by (subst \<open>x=0\<^sub>v (dim_vec x)\<close>) (subst index_zero_vec[of 4], auto)
     moreover have "x $ 4 \<noteq> 0" 
-    sorry
+    proof (cases "0\<in>I")
+      case True
+      then have rewr: "x = vec_of_list (plus_x @ 
+        concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [1..<n]))" unfolding x_def 
+        using \<open>0 < length a\<close> n_def upt_conv_Cons by auto
+      then show ?thesis by (subst rewr, unfold plus_x_def, simp add: numeral_Bit0)
+    next
+      case False
+      then have rewr: "x = vec_of_list (minus_x @ 
+        concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [1..<n]))" unfolding x_def 
+        using \<open>0 < length a\<close> n_def upt_conv_Cons by auto
+      then show ?thesis by (subst rewr) (unfold minus_x_def, simp add: numeral_Bit0)
+    qed
     ultimately show False by auto
   qed
   moreover have "\<parallel>x\<parallel>\<^sub>\<infinity> \<le> 1"
   proof -
-    let ?x_list = "(concat (map (\<lambda>i. if i \<in> I then [1, - 1, 0, 0, - 1] 
-      else [0, 0, 1, - 1, 1]) [0..<n]))"
-    have set: "set (?x_list) = {-1,0,1}" using \<open>length a > 0\<close> by auto
+    let ?x_list = "(concat (map (\<lambda>i. if i \<in> I then ([1, - 1, 0, 0, - 1]::int list)
+      else ([0, 0, 1, - 1, 1]::int list)) [0..<n]))"
+    have set: "set (?x_list) = {-1,0,1::int}" using \<open>length a > 0\<close> unfolding n_def sorry
     have "?x_list ! i \<in> {-1,0,1::int}" if "i< length ?x_list" for i
       using nth_mem[OF that] by (subst set[symmetric], auto)
     then have "x$i\<in>{-1,0,1::int}" if "i<dim_vec x" for i 
@@ -466,7 +620,7 @@ proof (safe, goal_cases)
     then show ?thesis unfolding linf_norm_vec_Max 
       by (subst Max_le_iff, auto simp add: exI[of "(\<lambda>i. dim_vec x > i)" 0] \<open>dim_vec x > 0\<close>)
   qed
-  ultimately show ?case by blast
+  ultimately show ?case by (subst exI[of _ x], auto) 
 qed
 
 
