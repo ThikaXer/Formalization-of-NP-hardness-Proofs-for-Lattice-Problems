@@ -14,6 +14,10 @@ definition partition_problem :: "(int list) set " where
   "partition_problem = {a. \<exists>I. I \<subseteq> {0..<length a} \<and> 
           (\<Sum>i\<in>I. a ! i) = (\<Sum>i\<in>({0..<length a}-I). a ! i)}"
 
+definition partition_problem_nonzero :: "(int list) set " where
+  "partition_problem_nonzero = {a. \<exists>I. I \<subseteq> {0..<length a} \<and> length a > 0 \<and>
+          (\<Sum>i\<in>I. a ! i) = (\<Sum>i\<in>({0..<length a}-I). a ! i)}"
+
 text \<open>Reduction partition problem to SAT(?).\<close>
 
 

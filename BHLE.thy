@@ -10,7 +10,7 @@ begin
 text \<open>Bounded Homogeneous Linear Equation Problem\<close>
 
 definition bhle :: "(int vec * int) set" where
-  "bhle \<equiv> {(a,k). \<exists>x. a \<bullet> x = 0 \<and> dim_vec x = dim_vec a \<and> 
+  "bhle \<equiv> {(a,k). \<exists>x. a \<bullet> x = 0 \<and> dim_vec x = dim_vec a \<and> dim_vec a > 0 \<and>
       x \<noteq> 0\<^sub>v (dim_vec x) \<and> \<parallel>x\<parallel>\<^sub>\<infinity> \<le> k}"
 
 text \<open>Reduction of bounded homogeneous linear equation to partition problem\<close>
@@ -56,7 +56,7 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
 "gen_bhle as = (let M = 2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1; n = length as in
   vec_of_list (concat 
   (map (\<lambda>i. b_list as i M) [0..<n-1]) 
-  @ b_list_last as n M))"
+  @ (if n>0 then b_list_last as n M else [])))"
 
 
 (*
@@ -446,14 +446,13 @@ qed
 text \<open>Well-definedness of reduction function\<close>
 
 lemma well_defined_reduction_subset_sum:
-  assumes "a \<in> partition_problem"
+  assumes "a \<in> partition_problem_nonzero"
   shows "reduce_bhle_partition a \<in> bhle"
-using assms unfolding partition_problem_def reduce_bhle_partition_def bhle_def
+using assms unfolding partition_problem_nonzero_def reduce_bhle_partition_def bhle_def
 proof (safe, goal_cases)
   case (1 I)
   have "finite I" using 1 by (meson subset_eq_atLeast0_lessThan_finite)
-  have "length a > 0" sorry
-  then have "a\<noteq>[]" by auto
+  have "length a > 0" using \<open>a\<noteq>[]\<close> by auto
   define n where "n = length a"
   define minus_x::"int list" where "minus_x = [0,0,1,-1,1]"
   define plus_x::"int list" where "plus_x = [1,-1,0,0,-1]"
@@ -746,13 +745,31 @@ text \<open>NP-hardness of reduction function\<close>
 
 lemma NP_hardness_reduction_subset_sum:
   assumes "reduce_bhle_partition a \<in> bhle"
-  shows "a \<in> partition_problem"
-sorry
+  shows "a \<in> partition_problem_nonzero"
+using assms unfolding reduce_bhle_partition_def bhle_def partition_problem_nonzero_def
+proof (safe, goal_cases)
+  case (1 x)
+  define I where "I = {i. x $ (5*i)\<noteq>0}"
+  have "I\<subseteq>{0..<length a}" sorry
+  moreover have "length a > 0"
+  proof -
+    have "a\<noteq>[]"
+    proof (rule ccontr)
+      assume "\<not> a \<noteq> []"
+      then have "a = []" by auto
+      have "dim_vec (gen_bhle []) = 0" unfolding gen_bhle_def b_list_last_def apply auto
+      then show False using 1(3) unfolding gen_bhle_def b_list_last_def apply auto
+    qed
+ using 1(3) unfolding gen_bhle_def b_list_last_def
+     sorry
+  moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" sorry
+  ultimately show ?case by auto
+qed
 
 
 
 text \<open>The Gap-SVP is NP-hard.\<close>
-lemma "is_reduction reduce_bhle_partition partition_problem bhle"
+lemma "is_reduction reduce_bhle_partition partition_problem_nonzero bhle"
 unfolding is_reduction_def
 proof (safe, goal_cases)
   case (1 a)
