@@ -320,41 +320,6 @@ next
      (subst b_list_nth[OF assms, of 4 M], auto split: if_splits, simp add: b_list_def)
 qed
 
-(*
-lemma gen_bhle_last:
-  "gen_bhle [a] = (let M = 2*\<bar>a\<bar> + 1; i = 1 in
-    vec_of_list [b1 i M a, b2_last i M, b3 i M, b4_last i M a, b5 i M])"
-unfolding gen_bhle_def Let_def by auto
-
-lemma gen_bhle_split:
-  "gen_bhle (a0 # a1 # as) = (let M = 2*(\<Sum>i<length (a0#a1#as). \<bar>(a0#a1#as)!i\<bar>)+1; i=1  in
-   vec_of_list ([b1 i M a0, b2 i M, b3 i M, b4 i M a0, b5 i M] @ 
-      concat (rec_bhle (i+1) M (a1#as))))"
-unfolding gen_bhle_def Let_def by auto
-
-lemma last_rec_bhle_1:
-  assumes "a\<noteq>[]"
-  shows "last (rec_bhle 1 M a) = concat (rec_bhle (length a) M [last a])"
-sorry
-
-lemma concat_rec_bhle':
-  assumes "n = length a" "a\<noteq>[]"
-  shows "last (rec_bhle 1 M a) = 
-    [b1 n M (last a), b2_last n M, b3 n M, b4_last n M (last a), b5 n M]"
-unfolding \<open>n= length a\<close> using \<open>a\<noteq>[]\<close> apply (induct a rule: list_nonempty_induct) apply auto
-sorry
-
-find_theorems "_!(_-1)"
-find_theorems name: list name: induct "_ \<noteq> []"
-
-
-lemma concat_rec_bhle:
-  assumes "j\<in>{0..<5}" "n = length a"
-  shows "concat (rec_bhle 1 M a) ! ((n-1)*5+j) = 
-    [b1 n M (a!(n-1)), b2_last n M, b3 n M, b4_last n M (a!(n-1)), b5 n M] ! j"
-apply auto sorry
-*)
-
 
 lemma split_sum:
   assumes "\<forall>i<n. a!i = b!i + M * c!i" 
@@ -374,8 +339,35 @@ proof -
 qed
 
 lemma sum_split_idx_prod:
-  "(\<Sum>i=0..<k*l. f i) = (\<Sum>i=0..<k. (\<Sum>j=0..<l. f (i*l+j)))"
-  oops
+  "(\<Sum>i=0..<k*l::nat. f i) = (\<Sum>i=0..<k. (\<Sum>j=0..<l. f (i*l+j)))"
+proof -
+  have set_rew: "{0..<k*l} = (\<lambda>(i,j). i*l+j) ` ({0..<k} \<times> {0..<l})"
+  proof (safe, goal_cases)
+    case (1 x)
+    have "x = (\<lambda>(i,j). i*l+j) (x div l, x mod l)" by auto
+    moreover have "(x div l, x mod l)\<in>{0..<k} \<times> {0..<l}" using 1 less_mult_imp_div_less
+      by (metis le_less_trans lessThan_atLeast0 lessThan_iff mem_Sigma_iff
+        mod_less_divisor mult_zero_right neq0_conv zero_le)
+    ultimately show ?case by blast
+  next
+    case (2 x i j)
+    then show ?case 
+    by (auto, metis less_nat_zero_code linorder_neqE_nat mod_lemma mult.commute nat_mod_lem)
+  qed
+  have inj: "inj_on (\<lambda>(i, y). i * l + y) ({0..<k} \<times> {0..<l})" 
+    unfolding inj_on_def by (auto) 
+      (metis add.commute add_right_imp_eq linorder_neqE_nat mod_mult_self2 mult.commute 
+        mult_cancel_right nat_mod_lem not_less_zero, 
+       metis add.commute le0 le_less_trans mod_mult_self2 mult.commute nat_mod_lem)
+  have "(\<Sum> i\<in>{0..<k*l}. f i) = (\<Sum>(i,j)\<in>{0..<k}\<times>{0..<l}. f (i*l+j))" 
+    unfolding set_rew using inj
+    by (subst sum.reindex[of "(\<lambda>(i, j). i * l + j)" "({0..<k} \<times> {0..<l})" f])
+       (auto simp add: prod.case_distrib)
+  also have "\<dots> = (\<Sum>i\<in>{0..<k}. (\<Sum>j\<in>{0..<l}. f (i*l+j)))"
+    using sum.cartesian_product[of "(\<lambda>i j. f (i*l+j))" "{0..<l}" "{0..<k}", symmetric]
+    by auto
+  finally show ?thesis by auto
+qed
 
 
 lemma lt_M:
@@ -451,17 +443,6 @@ qed
 
 
 
-
-(*
-lemma length_concat_rec_bhle:
-  "length (concat (rec_bhle i M a)) = 5 * (length a)"
-by (induct a arbitrary: i rule: induct_list012, auto)
-
-lemma length_rec_bhle:
-  "length (rec_bhle i M a) = length a"
-by (induct a arbitrary: i rule: induct_list012, auto)
-*)
-
 text \<open>Well-definedness of reduction function\<close>
 
 lemma well_defined_reduction_subset_sum:
@@ -488,24 +469,41 @@ proof (safe, goal_cases)
     "x $ (i*5+j) = (if i\<in>I then plus_x ! j else minus_x ! j)" if "i<n" "j<5" for i j 
   proof -
     have len_rew: "i*5 = length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i]))"
-      unfolding plus_x_def minus_x_def sorry
-    have map_rew: "map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n] =
-          map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i] @
-          map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n]"
-    using that(1) sorry
+    proof -
+      have if_rew: "(\<lambda>i. if i\<in>I then plus_x else minus_x) = 
+        (\<lambda>i. [(if i\<in>I then plus_x!0 else minus_x!0), (if i\<in>I then plus_x!1 else minus_x!1),
+              (if i\<in>I then plus_x!2 else minus_x!2), (if i\<in>I then plus_x!3 else minus_x!3),
+              (if i\<in>I then plus_x!4 else minus_x!4)])"
+       unfolding plus_x_def minus_x_def by auto
+      then show ?thesis
+      unfolding if_rew length_concat_map_5[of "(\<lambda>i. if i\<in>I then plus_x!0 else minus_x!0)"
+        "(\<lambda>i. if i\<in>I then plus_x!1 else minus_x!1)" "(\<lambda>i. if i\<in>I then plus_x!2 else minus_x!2)"
+        "(\<lambda>i. if i\<in>I then plus_x!3 else minus_x!3)" "(\<lambda>i. if i\<in>I then plus_x!4 else minus_x!4)"
+        "[0..<i]"] by auto
+    qed
+    have map_rew: "map f [0..<n] = map f [0..<i] @ map f [i..<n]" for f ::"nat \<Rightarrow> int list"
+      using that(1) by (metis list_trisect map_append n_def upt_conv_Cons)
     have "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n]) ! (i * 5 + j) =
           concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n]) ! j"
      by (subst map_rew, subst concat_append, subst len_rew)
         (subst nth_append_length_plus[of 
           "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i])"], simp)
-    also have "\<dots> = (if i \<in> I then plus_x!j else minus_x!j)" sorry
+    also have "\<dots> = (if i \<in> I then plus_x!j else minus_x!j)"
+    proof -
+      have concat_rewr: "concat (map f [i..<n])=
+       (f i) @ (concat (map f [i+1..<n]))" for f::"nat \<Rightarrow> int list"
+        by (simp add: that(1) upt_conv_Cons)
+      have length_if: "length (if i \<in> I then plus_x else minus_x) = 5" 
+        unfolding plus_x_def minus_x_def by auto
+      show ?thesis unfolding concat_rewr nth_append length_if using \<open>j<5\<close> by auto
+    qed
     finally show ?thesis unfolding x_def by (subst vec_index_vec_of_list, auto)
   qed
 
-find_theorems nth append
   
   have x_nth0:
-    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n" for i sorry
+    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n" for i 
+    using that by (subst x_nth[of i 0,symmetric], auto)
 
   have gen_bhle_in_I:
     "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) = 
@@ -587,40 +585,37 @@ find_theorems nth append
     finally show ?thesis by auto
   qed
 
-
+(*actual proof*)
   have "(gen_bhle a) \<bullet> x = 0"
   proof -
+    define f where "f = (\<lambda>i. (\<Sum>j = 0..<5. gen_bhle a $ (i*5+j) * x $ (i*5+j)))"
     have "(gen_bhle a) \<bullet> x = (\<Sum>i = 0..<n*5. (gen_bhle a) $ i * x $ i) "
       unfolding M_def n_def gen_bhle_def scalar_prod_def dimx_eq_5dima by (auto)
-    also have "\<dots> = (\<Sum>i = 0..<n. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)))"
-      (*using sum_split_idx_prod[of "(\<lambda>i. (gen_bhle a) $ i * x $ i)" n 5]  by auto*) sorry
-    also have "\<dots> = (\<Sum>i = 0..<n-1. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j))) 
-      + (\<Sum>j=0..<5. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j))"
-      by (subst sum.atLeast0_lessThan_Suc[of "\<lambda>i. (\<Sum>j = 0..<5. (gen_bhle a) $ (i*5+j) *
-         x $ (i*5+j))" "n-1", symmetric], use \<open>length a > 0\<close> n_def in \<open>auto\<close>)
-    also have "\<dots> = (\<Sum>i\<in>I-{n-1}. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j))) 
-      + (\<Sum>i\<in>{0..<n}-I-{n-1}. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j))) 
-      + (\<Sum>j=0..<5. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j))" 
-    sorry (*
+    also have "\<dots> = (\<Sum>i = 0..<n. f i)" unfolding f_def
+      using sum_split_idx_prod[of "(\<lambda>i. (gen_bhle a) $ i * x $ i)" n 5]  by auto
+    also have "\<dots> = (\<Sum>i = 0..<n-1. f i) + f (n-1)"
+      by (subst sum.atLeast0_lessThan_Suc[of "(\<lambda>i. f i)" "n-1", symmetric], 
+        use \<open>length a > 0\<close> n_def in \<open>auto\<close>)
+    also have "\<dots> = (\<Sum>i\<in>I-{n-1}. f i) + (\<Sum>i\<in>{0..<n}-I-{n-1}. f i) + f (n-1)" 
     proof -
-      have sets: "I - {n - 1} \<union> (({0..<n} - I) - {n - 1}) = {0..<n-1}"
+      have "I - {n - 1} \<union> (({0..<n} - I) - {n - 1}) = {0..<n-1}"
         using "1"(1) n_def by auto
-      then have ?thesis
+      then show ?thesis
         by (subst sum.union_disjoint[of "I - {n - 1}" "{0..<n} - I - {n - 1}", symmetric]) 
            (auto simp add: \<open>finite I\<close>)
-    qed (* What is happening here?!*) *)
+    qed
     also have "\<dots> = (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) 
       + (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) 
       + (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
           else (b3 n M)  - (b4_last n M (a!(n-1))) + (b5 n M))"
     proof -
-      have "(\<Sum>i\<in>I-{n-1}. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j))) =
+      have "(\<Sum>i\<in>I-{n-1}. f i) =
             (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) "
-      using gen_bhle_in_I[ of _ I n a x M] by (meson sum.cong)
-      moreover have "(\<Sum>i\<in>{0..<n}-I-{n-1}. (\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j))) =
+      unfolding f_def using gen_bhle_in_I by (simp add: n_def)
+      moreover have "(\<Sum>i\<in>{0..<n}-I-{n-1}. f i) =
             (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) "
-      using gen_bhle_not_in_I[of _ n I a x M] by (meson sum.cong)
-      ultimately show ?thesis using gen_bhle_last by auto
+      unfolding f_def using gen_bhle_not_in_I by (meson sum.cong)
+      ultimately show ?thesis unfolding f_def using gen_bhle_last by auto
     qed
     also have "\<dots> = (\<Sum>i\<in>I-{n-1}.  (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
       + (\<Sum>i\<in>{0..<n}-I-{n-1}. - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
@@ -730,7 +725,9 @@ find_theorems nth append
   proof -
     let ?x_list = "(concat (map (\<lambda>i. if i \<in> I then ([1, - 1, 0, 0, - 1]::int list)
       else ([0, 0, 1, - 1, 1]::int list)) [0..<n]))"
-    have set: "set (?x_list) = {-1,0,1::int}" using \<open>length a > 0\<close> unfolding n_def sorry
+    have set: "set (?x_list) = {-1,0,1::int}" 
+      using \<open>length a > 0\<close> 1 unfolding n_def 
+      by (subst set_concat, subst set_map)(auto simp add: atLeast0LessThan)
     have "?x_list ! i \<in> {-1,0,1::int}" if "i< length ?x_list" for i
       using nth_mem[OF that] by (subst set[symmetric], auto)
     then have "x$i\<in>{-1,0,1::int}" if "i<dim_vec x" for i 
@@ -742,7 +739,6 @@ find_theorems nth append
   qed
   ultimately show ?case by (subst exI[of _ x], auto) 
 qed
-
 
 
 
