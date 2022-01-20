@@ -58,7 +58,6 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
   (map (\<lambda>i. b_list as i M) [0..<n-1]) 
   @ (if n>0 then b_list_last as n M else [])))"
 
-
 (*
 try this out
 value "(2*(\<Sum>i<length [1,2::nat]. \<bar>[1,2::nat]!i\<bar>)+1)"
@@ -99,6 +98,9 @@ next
       "(\<lambda>i. b5 (i + 1) M             )"] in \<open>simp\<close>)
 qed
 
+lemma dim_vec_gen_bhle_empty:
+  "dim_vec (gen_bhle []) = 0"
+unfolding gen_bhle_def by auto
 
 
 (*Lemmas about length*)
@@ -115,78 +117,88 @@ by (subst length_concat)(simp add: comp_def length_b_list sum_list_triv)
 
 (*Last values of gen_bhle*)
 lemma gen_bhle_last0:
-  "(gen_bhle as) $ ((length as -1) * 5) = 
+  assumes "length as > 0"
+  shows "(gen_bhle as) $ ((length as -1) * 5) = 
     b1 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (last as)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
-  then show ?case
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_splits,
+        subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
-  then show ?case
+  then show ?case using assms
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
      (auto split: if_splits simp add: b_list_last_def)
 qed
 
 
 lemma gen_bhle_last1:
-  "(gen_bhle as) $ ((length as -1) * 5 + 1) = 
+  assumes "length as > 0"
+  shows "(gen_bhle as) $ ((length as -1) * 5 + 1) = 
     b2_last (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
-  then show ?case
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
-  then show ?case
+  then show ?case using assms
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
      (auto split: if_splits simp add: b_list_last_def)
 qed
 
 lemma gen_bhle_last2:
-  "(gen_bhle as) $ ((length as -1) * 5 + 2) = 
+  assumes "length as > 0"
+  shows "(gen_bhle as) $ ((length as -1) * 5 + 2) = 
     b3 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
-  then show ?case
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
-  then show ?case
+  then show ?case using assms
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
      (auto split: if_splits simp add: b_list_last_def)
 qed
 
 
 lemma gen_bhle_last3:
-  "(gen_bhle as) $ ((length as -1) * 5 + 3) = 
+  assumes "length as > 0"
+  shows "(gen_bhle as) $ ((length as -1) * 5 + 3) = 
     b4_last (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (last as)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
-  then show ?case
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
-  then show ?case
+  then show ?case using assms 
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
      (auto split: if_splits simp add: b_list_last_def)
 qed
 
 lemma gen_bhle_last4:
-  "(gen_bhle as) $ ((length as-1) * 5 + 4) = 
+  assumes "length as > 0"
+  shows "(gen_bhle as) $ ((length as-1) * 5 + 4) = 
     b5 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
-  then show ?case
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
-  then show ?case
+  then show ?case using assms
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
      (auto split: if_splits simp add: b_list_last_def)
 qed
@@ -243,7 +255,8 @@ proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append
   goal_cases)
   case 1
   then show ?case using assms
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
@@ -260,7 +273,8 @@ proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append
   goal_cases)
   case 1
   then show ?case using assms
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
@@ -277,7 +291,8 @@ proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append
   goal_cases)
   case 1
   then show ?case using assms
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
@@ -294,7 +309,8 @@ proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append
   goal_cases)
   case 1
   then show ?case using assms
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
@@ -311,7 +327,8 @@ proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append
   goal_cases)
   case 1
   then show ?case using assms
-    by (subst dim_vec_of_list)+ (subst length_b_list_last, subst length_concat_map_b_list, auto) 
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
 next
   case 2
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
@@ -571,11 +588,11 @@ proof (safe, goal_cases)
     also have "\<dots> = (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
       else (b3 n M)  - (b4_last n M (a!(n-1))) + (b5 n M))" 
     using 1 n_def \<open>length a > 0\<close> unfolding n_def
-    apply (subst gen_bhle_last0[of a])
-    apply (subst gen_bhle_last1[of a])
-    apply (subst gen_bhle_last2[of a])
-    apply (subst gen_bhle_last3[of a])
-    apply (subst gen_bhle_last4[of a]) using x_nth[of "n-1"]
+    apply (subst gen_bhle_last0[of a, OF \<open>length a > 0\<close>])
+    apply (subst gen_bhle_last1[of a, OF \<open>length a > 0\<close>])
+    apply (subst gen_bhle_last2[of a, OF \<open>length a > 0\<close>])
+    apply (subst gen_bhle_last3[of a, OF \<open>length a > 0\<close>])
+    apply (subst gen_bhle_last4[of a, OF \<open>length a > 0\<close>]) using x_nth[of "n-1"]
     apply (subst x_nth[of "length a-1"], simp add: n_def, linarith)+
     apply (subst x_nth0[of "length a-1"], simp add: n_def)
     apply (unfold M_def plus_x_def minus_x_def)
@@ -751,17 +768,7 @@ proof (safe, goal_cases)
   case (1 x)
   define I where "I = {i. x $ (5*i)\<noteq>0}"
   have "I\<subseteq>{0..<length a}" sorry
-  moreover have "length a > 0"
-  proof -
-    have "a\<noteq>[]"
-    proof (rule ccontr)
-      assume "\<not> a \<noteq> []"
-      then have "a = []" by auto
-      have "dim_vec (gen_bhle []) = 0" unfolding gen_bhle_def b_list_last_def apply auto
-      then show False using 1(3) unfolding gen_bhle_def b_list_last_def apply auto
-    qed
- using 1(3) unfolding gen_bhle_def b_list_last_def
-     sorry
+  moreover have "length a > 0" using dim_vec_gen_bhle_empty 1(3) by auto
   moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" sorry
   ultimately show ?case by auto
 qed
