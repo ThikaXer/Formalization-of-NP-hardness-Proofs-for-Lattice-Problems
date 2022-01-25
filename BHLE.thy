@@ -338,7 +338,7 @@ next
 qed
 
 
-lemma split_sum:
+lemma split_sum_list:
   assumes "\<forall>i<n. a!i = b!i + M * c!i" 
           "length (a::int list) = n" 
           "length (b::int list) = n" 
@@ -387,7 +387,7 @@ proof -
 qed
 
 
-lemma lt_M:
+lemma lt_M_list:
   assumes "length (b::int list) = n" 
           "length (x::int list) = n"
           "M > k * (\<Sum>i<n. \<bar>b!i\<bar>)"
@@ -404,7 +404,84 @@ proof -
   then show ?thesis using assms by auto
 qed
 
+
+(*not on lists, using functions instead*)
+(* declare [[show_types]]*)
+
+lemma lt_M:
+  assumes "M > (\<Sum>i<(n::nat). \<bar>b i\<bar>::int)"
+          "\<forall>i<n. \<bar>x i\<bar> \<le> 1" 
+  shows "\<bar>(\<Sum>i<n. x i * b i)\<bar> < M"
+proof - 
+  have "\<bar>(\<Sum>i<(n::nat). x i * b i)::int\<bar> \<le> (\<Sum>i<n. \<bar>x i * b i\<bar>)" using sum_abs by auto
+  moreover have "\<dots> = (\<Sum>i<n. \<bar>x i\<bar> * \<bar>b i\<bar>)" using abs_mult by metis
+  moreover have "\<dots> \<le> (\<Sum>i<n. \<bar>b i\<bar>)" using assms 
+    by (smt (verit, best) lessThan_iff mult_cancel_right2 sum_mono zero_less_mult_iff)
+  moreover have "\<dots> = (\<Sum>i<n. \<bar>b i\<bar>)" using sum_distrib_left by metis
+  ultimately have "\<bar>(\<Sum>i<n. x i * b i)\<bar> \<le> (\<Sum>i<n. \<bar>b i\<bar>)" by linarith
+  then show ?thesis using assms by auto
+qed
+
+
+
+lemma split_sum:
+  "(\<Sum>i<(n::nat). x i * (a i + M * b i)::int) = (\<Sum>i<n. x i * a i) + M * (\<Sum>i<n. x i * b i)"
+proof -
+  have "(\<Sum>i<(n::nat). x i * (a i + M * b i)) = (\<Sum>i<n. x i * a i) + (\<Sum>i<n. M * x i * b i)"
+    by (simp add: distrib_left mult.commute mult.left_commute)
+  also have "\<dots> = (\<Sum>i<n. x i * a i) + M * (\<Sum>i<n. x i * b i)"
+    using sum_distrib_left[symmetric, where r=M and f="(\<lambda>i. x i*b i)" and A = "{0..<n}"]  
+    by (metis (no_types, lifting) lessThan_atLeast0 mult.assoc sum.cong)
+  finally show ?thesis by blast
+qed
+
+
+
 lemma split_eq_system:
+  assumes "M > (\<Sum>i<n::nat. \<bar>a i\<bar>::int)"
+          "\<forall>i<n. \<bar>x i\<bar> \<le> 1" 
+          "(\<Sum>i<n. x i * (a i + M * b i)) = 0" 
+  shows   "(\<Sum>i<n. x i * a i) = 0 \<and> (\<Sum>i<n. x i * b i) = 0"
+using assms proof (safe, goal_cases)
+  case 1
+  then show ?case 
+  proof (cases "(\<Sum>i<n. x i * b i) = 0")
+    case True
+    then show ?thesis using assms(3) split_sum[of x a M b n] by auto
+  next
+    case False
+    then have "\<bar>(\<Sum>i<n. x i * a i)\<bar> < M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
+      using lt_M[OF assms(1) assms(2)] False
+      by (smt (verit, best) mult_less_cancel_left2)
+    moreover have "\<bar>(\<Sum>i<n. x i * a i)\<bar> = M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
+      using assms(3) split_sum[of x a M b n] calculation by linarith
+    ultimately have False by linarith 
+    then show ?thesis by auto
+  qed
+next
+  case 2
+  then show ?case 
+  proof (cases "(\<Sum>i<n. x i * b i) = 0")
+    case True
+    then show ?thesis using split_sum 2 using lt_M[OF assms(1) assms(2)]
+       by auto
+  next
+    case False
+    then have "\<bar>(\<Sum>i<n. x i * a i)\<bar> < M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
+      using lt_M[OF assms(1) assms(2)] False
+      by (smt (verit, best) mult_less_cancel_left2)
+    moreover have "\<bar>(\<Sum>i<n. x i * a i)\<bar> = M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
+      using split_sum[of x a M b n] assms calculation by linarith
+    ultimately have False by linarith 
+    then show ?thesis by auto
+  qed
+qed
+
+
+
+(*list*)
+
+lemma split_eq_system_list:
   assumes "\<forall>i<n. a!i = b!i + M * c!i" 
           "length (a::int list) = n" 
           "length (b::int list) = n" 
@@ -756,7 +833,7 @@ proof (safe, goal_cases)
   ultimately show ?case by (subst exI[of _ x], auto) 
 qed
 
-
+value " {i. ([1,2,0,0,1]::nat list)! i \<noteq> 0}"
 
 text \<open>NP-hardness of reduction function\<close>
 
@@ -766,10 +843,140 @@ lemma NP_hardness_reduction_subset_sum:
 using assms unfolding reduce_bhle_partition_def bhle_def partition_problem_nonzero_def
 proof (safe, goal_cases)
   case (1 x)
-  define I where "I = {i. x $ (5*i)\<noteq>0}"
-  have "I\<subseteq>{0..<length a}" sorry
-  moreover have "length a > 0" using dim_vec_gen_bhle_empty 1(3) by auto
-  moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" sorry
+  define I where "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
+  define n where "n = length a"
+  have dim_vec_x_5n: "dim_vec x = 5 * n" unfolding n_def using 1
+  by (metis dim_vec_gen_bhle dim_vec_gen_bhle_empty less_not_refl2)
+  have "length a > 0" using dim_vec_gen_bhle_empty 1(3) by auto
+  moreover have "I\<subseteq>{0..<length a}" using 1 I_def by auto
+  moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" 
+  proof -
+    define M where "M = 2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1"
+(*
+    define c where "c = (\<lambda>i. x$(i*5) + x$(i*5+3))"
+    define d1 where "d1 = (\<lambda>i. x$(i*5) + x$(i*5+2))"
+    define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
+    define d3 where "d3 = (\<lambda>i. x$(i*5+2) + x$(i*5+3))"
+    define d4 where "d4 = (\<lambda>i. x$(i*5) + x$(i*5+3) + x$(i*5+4))"
+
+
+have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)))" sorry
+*)
+
+    define a0 where "a0 = (\<lambda>i. if i mod (5::nat) \<in> {0,3} then a!(i div 5) else 0)"
+    define a1 where "a1 = (\<lambda>i. if i mod (5::nat) \<in> {0,2} then 1 else 0::int)"
+    define a2 where "a2 = (\<lambda>i. if i mod (5::nat) \<in> {0,1} then 1 else 0::int)"
+    define a3 where "a3 = (\<lambda>i. if i mod (5::nat) \<in> {2,3} then 1 else 0::int)"
+    define a4 where "a4 = (\<lambda>i. if i mod (5::nat) \<in> {0,3,4} then 1 else 0::int)"
+    define a5 where "a5 = (\<lambda>i. if i mod (5::nat) \<in> {1,3} then 
+                          (if i div 5 < n-1 then 5^(4*(i div 5 +1)) else 1) else 0::int)"
+    
+    let ?a0_rest = "(\<lambda>i. a1 i * 5 ^ (4 * (i div 5+1)) + a2 i * 5 ^ (4 * (i div 5+1) + 1) +
+          a3 i * 5 ^ (4 * (i div 5+1) + 2) + a4 i * 5 ^ (4 * (i div 5+1) + 3) + a5 i)"
+
+    have gen_bhle_nth: "gen_bhle a $ i =  (a0 i + M * (?a0_rest i))" 
+      if "i<dim_vec (gen_bhle a)" for i
+    unfolding gen_bhle_def Let_def unfolding M_def[symmetric] b_list_def b_list_last_def sorry
+
+
+    have  "gen_bhle a \<bullet> x = (\<Sum>i<5*n. x $ i * 
+      (a0 i + M * ?a0_rest i))"
+      using 1(1) gen_bhle_nth  unfolding scalar_prod_def Let_def dim_vec_x_5n 1(2)[symmetric]
+      by (smt (verit, best) lessThan_atLeast0 lessThan_iff mult.commute sum.cong)
+
+    then have sum_gen_bhle: "(\<Sum>i<5 * n. x $ i * (a0 i + M * ?a0_rest i)) = 0"
+      using 1(1) by simp
+
+
+    (* have sum_gen_bhle: "gen_bhle a \<bullet> x = (\<Sum>i<n. a ! i * c i +  
+      M * (d1 i * 5^i + d2 i * 5^(i+1) + d3 i * 5^(i+2) + d4 i * 5^(i+4)))"
+      using 1(1) unfolding gen_bhle_def scalar_prod_def Let_def sorry*)
+
+    have eq_0: "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i) = 0" and
+         eq_0': "(\<Sum>i<5*n. x$i * (?a0_rest i)) = 0"
+    proof -
+      have *: "(\<Sum>i<5*n. \<bar>a0 i\<bar>) < M"
+      proof -
+        have "(\<Sum>i<5*n. \<bar>a0 i\<bar>) = (\<Sum>i<n. (\<Sum>j<5. \<bar>a0 (i*5+j)\<bar>))"
+          using sum_split_idx_prod[of "(\<lambda>i. \<bar>a0 i\<bar>)" n 5]
+          by (simp add: lessThan_atLeast0 mult.commute)
+        also have "\<dots> = (\<Sum>i<n. (\<Sum>j<5::nat. \<bar>if j \<in> {0, 3} then a ! i else 0\<bar>))" 
+          unfolding a0_def by (subst div_mult_self3[of 5], simp,
+            subst sum.cong[of "{..<n}" "{..<n}"], auto,
+            subst sum.cong[of "{..<5}" "{..<5}"], auto)
+        also have "\<dots> = (\<Sum>i<n. 2 * \<bar>a ! i\<bar>)" by (auto simp add: eval_nat_numeral)
+        also have "\<dots> = 2 * (\<Sum>i<n. \<bar>a ! i\<bar>)"
+          by (simp add: sum_distrib_left)
+        finally show ?thesis unfolding M_def n_def by linarith
+      qed
+      have **: "\<forall>i<5*n. \<bar>x $ i\<bar> \<le> 1" using 1(5)
+        by (metis dim_vec_x_5n ge_trans vec_index_le_linf_norm)
+      have "(\<Sum>i<5*n. x $ i * a0 i) = 0 \<and> (\<Sum>i<5*n. x$i * (?a0_rest i)) = 0"
+        using split_eq_system[OF * ** sum_gen_bhle] by auto
+      moreover have "(\<Sum>i<5*n. x $ i * a0 i) = (\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i)"
+      proof -
+        have "(\<Sum>j = i*5..<i*5+5. x$j * (if j mod 5 \<in> {0, 3} then a!(j div 5) else 0)) =
+              (x$(i*5) + x$(i*5+3)) * a ! i" if "i<n" for i
+        proof -
+          have div_rule: "(i * 5 + xa) div 5 = i" if "xa <5" for xa using that by auto
+          have "(\<Sum>j = i*5..<i*5+5. x$j * (if j mod 5 \<in> {0, 3} then a!(j div 5) else 0)) =
+            sum (\<lambda>j. x$j * (if j mod 5 \<in> {0, 3} then a!(j div 5) else 0)) ((+) (i * 5) ` {0..<5})"
+            by (simp add: add.commute)
+          also have "\<dots> = (\<Sum>j<5. x$(i*5 + j) * (if j \<in> {0, 3} then a!i else 0))" 
+            apply (subst sum.reindex[of "(\<lambda>j. i*5+j)" "{0..<5}"], simp) 
+            apply (unfold comp_def) using mod_mult_self3[of i 5] div_rule
+            apply (metis (no_types, lifting) One_nat_def lessThan_atLeast0 lessThan_iff 
+              nat_mod_lem not_less_eq not_numeral_less_one sum.cong) done
+          also have "\<dots> = x$(i*5 + 0) * a!i + x$(i*5 + 3) * a!i" 
+            by (auto simp add: eval_nat_numeral split: if_splits)
+          finally show ?thesis by (simp add: distrib_left mult.commute)
+        qed
+        then show ?thesis unfolding a0_def by (subst mult.commute[of 5 n]) 
+           (subst sum.nat_group[symmetric], auto)
+      qed
+      ultimately show "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i) = 0" and
+                      "(\<Sum>i<5*n. x$i * (?a0_rest i)) = 0" by auto
+    qed
+  
+    have "(\<Sum>i<5 * (n-1).
+      x $ i *
+      (a1 i * 5 ^ (4 * (i div 5)) + a2 i * 5 ^ (4 * (i div 5) + 1) +
+       a3 i * 5 ^ (4 * (i div 5) + 2) +
+       a4 i * 5 ^ (4 * (i div 5) + 3) +
+       a5 i)) + (\<Sum>j<5. x $ ((n-1)*5+j) *
+      (a1 i * 5 ^ (4 * (i div 5)) + a2 i * 5 ^ (4 * (i div 5) + 1) +
+       a3 i * 5 ^ (4 * (i div 5) + 2) +
+       a4 i * 5 ^ (4 * (i div 5) + 3) +
+       a5 i)) =
+  0" unfolding a5_def
+
+
+    have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i sorry
+    have eq_2: "x$0 + x$2 + x$((n-1)*5+1) + x$((n-1)*5+3) = 0" sorry
+    have eq_3: "x$(i*5) + x$(i*5+1) = 0" if "i\<in>{0..<n}" for i sorry
+    have eq_4: "x$(i*5+2) + x$(i*5+3) = 0" if "i\<in>{0..<n}" for i sorry
+    have eq_5: "x$(i*5) + x$(i*5+3) + x$(i*5+4) = 0" if "i\<in>{0..<n}" for i sorry
+    
+    have "x$(5*i) + x$(5*i+2) = x$(5*(i-1)) + x$(5*(i-1)+2)" if "i\<in>{1..<n}" for i sorry
+    define w where "w = x$0 + x$2"
+  (*This is the weight of the solution, since $x_{i,0} + x_{i,2}$ does not depend on the index i.*)
+    
+
+    have "\<bar>w\<bar> \<le> 1" using eq_4 w_def sorry
+
+    moreover have "w\<noteq>0" sorry
+
+    ultimately have "w=1 \<or> w = -1" by auto
+    then consider (pos) "w=1" | (neg) "w=-1" by blast
+    then show ?thesis
+    proof cases
+      case pos
+      then show ?thesis sorry
+    next
+      case neg
+      then show ?thesis sorry
+    qed
+  qed
   ultimately show ?case by auto
 qed
 
