@@ -5,6 +5,7 @@ imports Main
         infnorm
         Partition
         Lattice_int
+        Digits_2
 
 begin
 text \<open>Bounded Homogeneous Linear Equation Problem\<close>
@@ -843,6 +844,7 @@ lemma NP_hardness_reduction_subset_sum:
 using assms unfolding reduce_bhle_partition_def bhle_def partition_problem_nonzero_def
 proof (safe, goal_cases)
   case (1 x)
+  have "length a > 0" sorry
   define I where "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
   define n where "n = length a"
   have dim_vec_x_5n: "dim_vec x = 5 * n" unfolding n_def using 1
@@ -852,14 +854,9 @@ proof (safe, goal_cases)
   moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" 
   proof -
     define M where "M = 2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1"
+
+
 (*
-    define c where "c = (\<lambda>i. x$(i*5) + x$(i*5+3))"
-    define d1 where "d1 = (\<lambda>i. x$(i*5) + x$(i*5+2))"
-    define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
-    define d3 where "d3 = (\<lambda>i. x$(i*5+2) + x$(i*5+3))"
-    define d4 where "d4 = (\<lambda>i. x$(i*5) + x$(i*5+3) + x$(i*5+4))"
-
-
 have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)))" sorry
 *)
 
@@ -871,20 +868,21 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
     define a5 where "a5 = (\<lambda>i. if i mod (5::nat) \<in> {1,3} then 
                           (if i div 5 < n-1 then 5^(4*(i div 5 +1)) else 1) else 0::int)"
     
-    let ?a0_rest = "(\<lambda>i. a1 i * 5 ^ (4 * (i div 5+1)) + a2 i * 5 ^ (4 * (i div 5+1) + 1) +
+    define a0_rest where "a0_rest = 
+          (\<lambda>i. a1 i * 5 ^ (4 * (i div 5+1)) + a2 i * 5 ^ (4 * (i div 5+1) + 1) +
           a3 i * 5 ^ (4 * (i div 5+1) + 2) + a4 i * 5 ^ (4 * (i div 5+1) + 3) + a5 i)"
 
-    have gen_bhle_nth: "gen_bhle a $ i =  (a0 i + M * (?a0_rest i))" 
+    have gen_bhle_nth: "gen_bhle a $ i =  (a0 i + M * (a0_rest i))" 
       if "i<dim_vec (gen_bhle a)" for i
     unfolding gen_bhle_def Let_def unfolding M_def[symmetric] b_list_def b_list_last_def sorry
 
 
     have  "gen_bhle a \<bullet> x = (\<Sum>i<5*n. x $ i * 
-      (a0 i + M * ?a0_rest i))"
+      (a0 i + M * a0_rest i))"
       using 1(1) gen_bhle_nth  unfolding scalar_prod_def Let_def dim_vec_x_5n 1(2)[symmetric]
       by (smt (verit, best) lessThan_atLeast0 lessThan_iff mult.commute sum.cong)
 
-    then have sum_gen_bhle: "(\<Sum>i<5 * n. x $ i * (a0 i + M * ?a0_rest i)) = 0"
+    then have sum_gen_bhle: "(\<Sum>i<5 * n. x $ i * (a0 i + M * a0_rest i)) = 0"
       using 1(1) by simp
 
 
@@ -893,7 +891,7 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
       using 1(1) unfolding gen_bhle_def scalar_prod_def Let_def sorry*)
 
     have eq_0: "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i) = 0" and
-         eq_0': "(\<Sum>i<5*n. x$i * (?a0_rest i)) = 0"
+         eq_0': "(\<Sum>i<5*n. x$i * (a0_rest i)) = 0"
     proof -
       have *: "(\<Sum>i<5*n. \<bar>a0 i\<bar>) < M"
       proof -
@@ -911,7 +909,7 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
       qed
       have **: "\<forall>i<5*n. \<bar>x $ i\<bar> \<le> 1" using 1(5)
         by (metis dim_vec_x_5n ge_trans vec_index_le_linf_norm)
-      have "(\<Sum>i<5*n. x $ i * a0 i) = 0 \<and> (\<Sum>i<5*n. x$i * (?a0_rest i)) = 0"
+      have "(\<Sum>i<5*n. x $ i * a0 i) = 0 \<and> (\<Sum>i<5*n. x$i * (a0_rest i)) = 0"
         using split_eq_system[OF * ** sum_gen_bhle] by auto
       moreover have "(\<Sum>i<5*n. x $ i * a0 i) = (\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i)"
       proof -
@@ -935,20 +933,92 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
            (subst sum.nat_group[symmetric], auto)
       qed
       ultimately show "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i) = 0" and
-                      "(\<Sum>i<5*n. x$i * (?a0_rest i)) = 0" by auto
+                      "(\<Sum>i<5*n. x$i * (a0_rest i)) = 0" by auto
     qed
   
-    have "(\<Sum>i<5 * (n-1).
-      x $ i *
-      (a1 i * 5 ^ (4 * (i div 5)) + a2 i * 5 ^ (4 * (i div 5) + 1) +
-       a3 i * 5 ^ (4 * (i div 5) + 2) +
-       a4 i * 5 ^ (4 * (i div 5) + 3) +
-       a5 i)) + (\<Sum>j<5. x $ ((n-1)*5+j) *
-      (a1 i * 5 ^ (4 * (i div 5)) + a2 i * 5 ^ (4 * (i div 5) + 1) +
-       a3 i * 5 ^ (4 * (i div 5) + 2) +
-       a4 i * 5 ^ (4 * (i div 5) + 3) +
-       a5 i)) =
-  0" unfolding a5_def
+    let ?eq_0'_left = "(\<Sum>i<5*n. x$i * (a0_rest i))"
+    interpret digits 5 by (simp add: digits_def)
+    have digit_a0_rest: "digit ?eq_0'_left k = 0" for k
+      by (simp add: eq_0' digit_altdef)
+
+
+
+
+    define d1 where "d1 = (\<lambda>i. x$(i*5) + x$(i*5+2))"
+    define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
+    define d3 where "d3 = (\<lambda>i. x$(i*5+2) + x$(i*5+3))"
+    define d4 where "d4 = (\<lambda>i. x$(i*5) + x$(i*5+3) + x$(i*5+4))"
+    define d5 where "d5 = (\<lambda>i. x$(5*i+1) + x$(5*i+3))"
+
+
+
+    have rewrite_digits:"(\<Sum>i<5*n. x$i * (a0_rest i)) = 
+       d5 (n-1) + d1 0 +
+      (\<Sum>j\<in>{0..<n}. d2 j * 5 ^(4*j+1)) + 
+      (\<Sum>j\<in>{0..<n}. d3 j * 5 ^(4*j+2)) + 
+      (\<Sum>j\<in>{0..<n}. d4 j * 5 ^(4*j+3)) +
+      (\<Sum>j\<in>{1..<n}. (d1 j + d5 (j-1)) * 5 ^(4*j))" 
+      (is "(\<Sum>i<5*n. x$i * (a0_rest i)) = ?digits")
+    proof -
+      let ?x_a0_rest = "(\<lambda>i j. x$(i*5+j) * (a0_rest (i*5+j)))"
+      have "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n. (\<Sum>j<5. ?x_a0_rest i j))"
+        using sum_split_idx_prod[of "(\<lambda>i. x$i * (a0_rest i))" n 5]
+        by (simp add: lessThan_atLeast0 mult.commute)
+      moreover have "\<dots> = (\<Sum>i<n.
+        ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4)"
+        by (simp add: eval_nat_numeral)
+      moreover have "\<dots> = 
+          ?x_a0_rest 0 0 + ?x_a0_rest 0 1 + ?x_a0_rest 0 2 + ?x_a0_rest 0 3 + ?x_a0_rest 0 4 +
+        (\<Sum>i\<in>{1..<n}.
+          ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4 )" 
+        unfolding n_def using sum.atLeast_Suc_lessThan[OF \<open>length a > 0\<close>, of
+        "(\<lambda>i. ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4)"] 
+        using One_nat_def lessThan_atLeast0 by presburger
+      moreover have 
+sorry
+find_theorems sum "_+_" name: lessThan
+
+      then show ?thesis unfolding a0_rest_def a1_def a2_def a3_def a4_def a5_def 
+          sorry
+    qed
+
+
+
+    
+    moreover have "d5 (n-1) + d1 0 < 5" sorry
+    
+    moreover have "d3 j<5" if "j\<in>{0..<n}" for j sorry
+    moreover have "d4 j<5" if "j\<in>{0..<n}" for j sorry
+    moreover have "d1 j + d5 j <5" if "j\<in>{1..<n}" for j sorry
+
+    have d2_lt_5: "d2 j<5" if "j\<in>{0..<n}" for j sorry
+
+    have "digit ?eq_0'_left (i*4+1) = d2 i" 
+      if "i\<in>{0..<n}" for i 
+      apply (subst digit_altdef) apply (subst rewrite_digits) 
+      proof -
+      have "(d5 (n - 1) + d1 0 + 
+     (\<Sum>j = 0..<n. d2 j * 5 ^ (4 * j + 1)) +
+     (\<Sum>j = 0..<n. d3 j * 5 ^ (4 * j + 2)) +
+     (\<Sum>j = 0..<n. d4 j * 5 ^ (4 * j + 3)) +
+     (\<Sum>j = 1..<n. (d1 j + d5 (j - 1)) * 5 ^ (4 * j))) div
+       5 ^ (i * 4 + 1) =
+     (\<Sum>j = i..<n. d2 j * 5 ^ (4 * j + 1)) +
+     (\<Sum>j = i..<n. d3 j * 5 ^ (4 * j + 2)) +
+     (\<Sum>j = i..<n. d4 j * 5 ^ (4 * j + 3)) +
+     (\<Sum>j = (i+1)..<n. (d1 j + d5 (j - 1)) * 5 ^ (4 * j))"
+      
+      using d2_lt_5[OF that] apply auto
+    sorry
+
+
+find_theorems "(_ + _) div _"
+
+
+    (*k-th digit is zero*)
+    ultimately have "digit ?digits k = 0" if "k\<in>{0..<4*n}" for k sorry
+
+find_theorems "_ mod _" "_ div _" "_ = 0"
 
 
     have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i sorry
