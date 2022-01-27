@@ -480,7 +480,7 @@ qed
 
 
 
-(*list*)
+(*list
 
 lemma split_eq_system_list:
   assumes "\<forall>i<n. a!i = b!i + M * c!i" 
@@ -535,7 +535,7 @@ next
   then show ?case using split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)] by auto
 qed
 
-
+*)
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -834,9 +834,26 @@ proof (safe, goal_cases)
   ultimately show ?case by (subst exI[of _ x], auto) 
 qed
 
-value " {i. ([1,2,0,0,1]::nat list)! i \<noteq> 0}"
+
 
 text \<open>NP-hardness of reduction function\<close>
+
+lemma lt_4_split: "(i::nat) < 4 \<longrightarrow> i = 0 \<or> i = 1 \<or> i = 2 \<or> i = 3"
+by auto
+
+lemma mod_exhaust_less_4_int: "(i::int) mod 4 = 0 \<or> i mod 4 = 1 \<or> i mod 4 = 2 \<or> i mod 4 = 3"
+using MacLaurin.mod_exhaust_less_4 by auto
+
+lemma mod_4_choices:
+  assumes "i mod 4 = 0 \<longrightarrow> P i"
+          "i mod 4 = 1 \<longrightarrow> P i"
+          "i mod 4 = 2 \<longrightarrow> P i"
+          "i mod 4 = 3 \<longrightarrow> P i"
+  shows "P (i::nat)"
+using assms mod_exhaust_less_4 by auto
+
+
+
 
 lemma NP_hardness_reduction_subset_sum:
   assumes "reduce_bhle_partition a \<in> bhle"
@@ -855,11 +872,6 @@ proof (safe, goal_cases)
   proof -
     define M where "M = 2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1"
 
-
-(*
-have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)))" sorry
-*)
-
     define a0 where "a0 = (\<lambda>i. if i mod (5::nat) \<in> {0,3} then a!(i div 5) else 0)"
     define a1 where "a1 = (\<lambda>i. if i mod (5::nat) \<in> {0,2} then 1 else 0::int)"
     define a2 where "a2 = (\<lambda>i. if i mod (5::nat) \<in> {0,1} then 1 else 0::int)"
@@ -877,8 +889,7 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
     unfolding gen_bhle_def Let_def unfolding M_def[symmetric] b_list_def b_list_last_def sorry
 
 
-    have  "gen_bhle a \<bullet> x = (\<Sum>i<5*n. x $ i * 
-      (a0 i + M * a0_rest i))"
+    have  "gen_bhle a \<bullet> x = (\<Sum>i<5*n. x $ i *  (a0 i + M * a0_rest i))"
       using 1(1) gen_bhle_nth  unfolding scalar_prod_def Let_def dim_vec_x_5n 1(2)[symmetric]
       by (smt (verit, best) lessThan_atLeast0 lessThan_iff mult.commute sum.cong)
 
@@ -921,10 +932,10 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
             sum (\<lambda>j. x$j * (if j mod 5 \<in> {0, 3} then a!(j div 5) else 0)) ((+) (i * 5) ` {0..<5})"
             by (simp add: add.commute)
           also have "\<dots> = (\<Sum>j<5. x$(i*5 + j) * (if j \<in> {0, 3} then a!i else 0))" 
-            apply (subst sum.reindex[of "(\<lambda>j. i*5+j)" "{0..<5}"], simp) 
-            apply (unfold comp_def) using mod_mult_self3[of i 5] div_rule
-            apply (metis (no_types, lifting) One_nat_def lessThan_atLeast0 lessThan_iff 
-              nat_mod_lem not_less_eq not_numeral_less_one sum.cong) done
+            using mod_mult_self3[of i 5] div_rule
+            by (subst sum.reindex[of "(\<lambda>j. i*5+j)" "{0..<5}"], simp, unfold comp_def) 
+              (metis (no_types, lifting) One_nat_def lessThan_atLeast0 lessThan_iff 
+              nat_mod_lem not_less_eq not_numeral_less_one sum.cong)
           also have "\<dots> = x$(i*5 + 0) * a!i + x$(i*5 + 3) * a!i" 
             by (auto simp add: eval_nat_numeral split: if_splits)
           finally show ?thesis by (simp add: distrib_left mult.commute)
@@ -942,8 +953,6 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
       by (simp add: eq_0' digit_altdef)
 
 
-
-
     define d1 where "d1 = (\<lambda>i. x$(i*5) + x$(i*5+2))"
     define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
     define d3 where "d3 = (\<lambda>i. x$(i*5+2) + x$(i*5+3))"
@@ -951,81 +960,52 @@ have "gen_bhle a \<bullet> x = (\<Sum>i<n. (\<Sum>j<5. (gen_bhle a) $ (i*5+j) * 
     define d5 where "d5 = (\<lambda>i. x$(5*i+1) + x$(5*i+3))"
 
 
+    define d where "d = (\<lambda>k. 
+      (if k mod 4 = 0 then 
+          (if k = 0 then d5 (n-1) + d1 0 else (d1 (k div 4) + d5 (k div 4 -1))) else
+      (if k mod 4 = 1 then d2 (k div 4) else 
+      (if k mod 4 = 2 then d3 (k div 4) else d4 (k div 4)))))"
 
-    have rewrite_digits:"(\<Sum>i<5*n. x$i * (a0_rest i)) = 
-       d5 (n-1) + d1 0 +
-      (\<Sum>j\<in>{0..<n}. d2 j * 5 ^(4*j+1)) + 
-      (\<Sum>j\<in>{0..<n}. d3 j * 5 ^(4*j+2)) + 
-      (\<Sum>j\<in>{0..<n}. d4 j * 5 ^(4*j+3)) +
-      (\<Sum>j\<in>{1..<n}. (d1 j + d5 (j-1)) * 5 ^(4*j))" 
-      (is "(\<Sum>i<5*n. x$i * (a0_rest i)) = ?digits")
+    have rewrite_digits: "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>k<4*n. d k * 5^k)"
+      unfolding d_def a0_rest_def sorry
+  
+    have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i sorry
+
+    have " \<bar>d5 (n - Suc 0) + d1 0\<bar> < 5"
     proof -
-      let ?x_a0_rest = "(\<lambda>i j. x$(i*5+j) * (a0_rest (i*5+j)))"
-      have "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n. (\<Sum>j<5. ?x_a0_rest i j))"
-        using sum_split_idx_prod[of "(\<lambda>i. x$i * (a0_rest i))" n 5]
-        by (simp add: lessThan_atLeast0 mult.commute)
-      moreover have "\<dots> = (\<Sum>i<n.
-        ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4)"
-        by (simp add: eval_nat_numeral)
-      moreover have "\<dots> = 
-          ?x_a0_rest 0 0 + ?x_a0_rest 0 1 + ?x_a0_rest 0 2 + ?x_a0_rest 0 3 + ?x_a0_rest 0 4 +
-        (\<Sum>i\<in>{1..<n}.
-          ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4 )" 
-        unfolding n_def using sum.atLeast_Suc_lessThan[OF \<open>length a > 0\<close>, of
-        "(\<lambda>i. ?x_a0_rest i 0 + ?x_a0_rest i 1 + ?x_a0_rest i 2 + ?x_a0_rest i 3 + ?x_a0_rest i 4)"] 
-        using One_nat_def lessThan_atLeast0 by presburger
-      moreover have 
-sorry
-find_theorems sum "_+_" name: lessThan
+      have "\<bar>d5 (n - Suc 0) + d1 0\<bar> \<le> \<bar>d5 (n - Suc 0)\<bar> + \<bar>d1 0\<bar>" 
+        by (subst abs_triangle_ineq, auto)
+      also have "\<dots> \<le> \<bar>x $ (5 * (n - Suc 0) + 1)\<bar> + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
+        \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
+        unfolding d1_def d5_def using abs_triangle_ineq apply auto
 
-      then show ?thesis unfolding a0_rest_def a1_def a2_def a3_def a4_def a5_def 
-          sorry
-    qed
+using xi_le_1
+         sorry
+    moreover have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> < 5" if "0 < i" and "4 dvd i" for i sorry
+    moreover have "\<bar>d2 (i div 4)\<bar> < 5"if "i mod 4 = 1" for i sorry
+    moreover have "\<bar>d3 (i div 4)\<bar> < 5" if "i mod 4 = 2" for i sorry
+    moreover have "\<bar>d4 (i div 4)\<bar> < 5" if "i mod 4 = 3" for i sorry
 
 
-
+    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i
+    by (subst mod_4_choices[of i], unfold d_def, auto)
     
-    moreover have "d5 (n-1) + d1 0 < 5" sorry
-    
-    moreover have "d3 j<5" if "j\<in>{0..<n}" for j sorry
-    moreover have "d4 j<5" if "j\<in>{0..<n}" for j sorry
-    moreover have "d1 j + d5 j <5" if "j\<in>{1..<n}" for j sorry
+    have sum_zero: "(\<Sum>k<4*n. d k * 5^k) = 0" using eq_0' rewrite_digits by auto
 
-    have d2_lt_5: "d2 j<5" if "j\<in>{0..<n}" for j sorry
-
-    have "digit ?eq_0'_left (i*4+1) = d2 i" 
-      if "i\<in>{0..<n}" for i 
-      apply (subst digit_altdef) apply (subst rewrite_digits) 
-      proof -
-      have "(d5 (n - 1) + d1 0 + 
-     (\<Sum>j = 0..<n. d2 j * 5 ^ (4 * j + 1)) +
-     (\<Sum>j = 0..<n. d3 j * 5 ^ (4 * j + 2)) +
-     (\<Sum>j = 0..<n. d4 j * 5 ^ (4 * j + 3)) +
-     (\<Sum>j = 1..<n. (d1 j + d5 (j - 1)) * 5 ^ (4 * j))) div
-       5 ^ (i * 4 + 1) =
-     (\<Sum>j = i..<n. d2 j * 5 ^ (4 * j + 1)) +
-     (\<Sum>j = i..<n. d3 j * 5 ^ (4 * j + 2)) +
-     (\<Sum>j = i..<n. d4 j * 5 ^ (4 * j + 3)) +
-     (\<Sum>j = (i+1)..<n. (d1 j + d5 (j - 1)) * 5 ^ (4 * j))"
-      
-      using d2_lt_5[OF that] apply auto
-    sorry
+    then have d_eq_0: "d k = 0" if "k<4*n" for k 
+      using respresentation_in_basis_eq_zero[OF sum_zero _ _ that] d_lt_5 by auto
 
 
-find_theorems "(_ + _) div _"
-
-
-    (*k-th digit is zero*)
-    ultimately have "digit ?digits k = 0" if "k\<in>{0..<4*n}" for k sorry
-
-find_theorems "_ mod _" "_ div _" "_ = 0"
-
-
-    have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i sorry
-    have eq_2: "x$0 + x$2 + x$((n-1)*5+1) + x$((n-1)*5+3) = 0" sorry
-    have eq_3: "x$(i*5) + x$(i*5+1) = 0" if "i\<in>{0..<n}" for i sorry
-    have eq_4: "x$(i*5+2) + x$(i*5+3) = 0" if "i\<in>{0..<n}" for i sorry
-    have eq_5: "x$(i*5) + x$(i*5+3) + x$(i*5+4) = 0" if "i\<in>{0..<n}" for i sorry
+    have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i
+      using d_eq_0[of "4*i"] sorry
+    have eq_2: "x$0 + x$2 + x$((n-1)*5+1) + x$((n-1)*5+3) = 0" 
+      using d_eq_0[of "0"]sorry
+    have eq_3: "x$(i*5) + x$(i*5+1) = 0" if "i\<in>{0..<n}" for i 
+      using d_eq_0[of "4*i+1"]sorry
+    have eq_4: "x$(i*5+2) + x$(i*5+3) = 0" if "i\<in>{0..<n}" for i 
+      using d_eq_0[of "4*i+2"]sorry
+    have eq_5: "x$(i*5) + x$(i*5+3) + x$(i*5+4) = 0" if "i\<in>{0..<n}" for i 
+      using d_eq_0[of "4*i+3"]sorry
     
     have "x$(5*i) + x$(5*i+2) = x$(5*(i-1)) + x$(5*(i-1)+2)" if "i\<in>{1..<n}" for i sorry
     define w where "w = x$0 + x$2"
