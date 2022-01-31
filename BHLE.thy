@@ -838,6 +838,7 @@ qed
 
 text \<open>NP-hardness of reduction function\<close>
 
+(*split into 4 mod classes*)
 lemma lt_4_split: "(i::nat) < 4 \<longrightarrow> i = 0 \<or> i = 1 \<or> i = 2 \<or> i = 3"
 by auto
 
@@ -853,6 +854,50 @@ lemma mod_4_choices:
 using assms mod_exhaust_less_4 by auto
 
 
+(*split into 5 mod classes*)
+
+lemma lt_5_split: "(i::nat) < 5 \<longrightarrow> i = 0 \<or> i = 1 \<or> i = 2 \<or> i = 3 \<or> i = 4"
+by auto
+
+lemma mod_exhaust_less_5_int: 
+  "(i::int) mod 5 = 0 \<or> i mod 5 = 1 \<or> i mod 5 = 2 \<or> i mod 5 = 3 \<or> i mod 5 = 4"
+using lt_5_split by linarith
+
+lemma mod_exhaust_less_5: 
+  "(i::nat) mod 5 = 0 \<or> i mod 5 = 1 \<or> i mod 5 = 2 \<or> i mod 5 = 3 \<or> i mod 5 = 4"
+using lt_5_split by linarith
+
+lemma mod_5_choices:
+  assumes "i mod 5 = 0 \<longrightarrow> P i"
+          "i mod 5 = 1 \<longrightarrow> P i"
+          "i mod 5 = 2 \<longrightarrow> P i"
+          "i mod 5 = 3 \<longrightarrow> P i"
+          "i mod 5 = 4 \<longrightarrow> P i"
+  shows "P (i::nat)"
+using assms mod_exhaust_less_5 by auto
+
+lemma mod_5_if_split:
+  assumes "i mod 5 = 0 \<longrightarrow> P = P0 i"
+          "i mod 5 = 1 \<longrightarrow> P = P1 i"
+          "i mod 5 = 2 \<longrightarrow> P = P2 i"
+          "i mod 5 = 3 \<longrightarrow> P = P3 i"
+          "i mod 5 = 4 \<longrightarrow> P = P4 i"
+  shows "P = (if i mod 5 = 0 then P0 i else
+               (if i mod 5 = 1 then P1 i else
+               (if i mod 5 = 2 then P2 i else
+               (if i mod 5 = 3 then P3 i else
+                                    P4 (i::nat)))))" (is "?P i")
+using mod_exhaust_less_5  by (auto simp add: assms)
+
+(*number in set is lower limit plus difference*)
+
+lemma split_lower_plus_diff:
+  assumes "s \<in> {n..<m::nat}"
+  obtains j where "s = n+j" and "j<m-n"
+using assms 
+by (metis atLeastLessThan_iff diff_diff_left le_Suc_ex zero_less_diff)
+
+(*NP-hardnedd*)
 
 
 lemma NP_hardness_reduction_subset_sum:
@@ -861,7 +906,7 @@ lemma NP_hardness_reduction_subset_sum:
 using assms unfolding reduce_bhle_partition_def bhle_def partition_problem_nonzero_def
 proof (safe, goal_cases)
   case (1 x)
-  have "length a > 0" sorry
+  have "length a > 0" using 1(3) dim_vec_gen_bhle dim_vec_gen_bhle_empty by auto
   define I where "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
   define n where "n = length a"
   have dim_vec_x_5n: "dim_vec x = 5 * n" unfolding n_def using 1
@@ -881,12 +926,93 @@ proof (safe, goal_cases)
                           (if i div 5 < n-1 then 5^(4*(i div 5 +1)) else 1) else 0::int)"
     
     define a0_rest where "a0_rest = 
-          (\<lambda>i. a1 i * 5 ^ (4 * (i div 5+1)) + a2 i * 5 ^ (4 * (i div 5+1) + 1) +
-          a3 i * 5 ^ (4 * (i div 5+1) + 2) + a4 i * 5 ^ (4 * (i div 5+1) + 3) + a5 i)"
+          (\<lambda>i. a1 i * 5 ^ (4 * (i div 5)) + a2 i * 5 ^ (4 * (i div 5) + 1) +
+          a3 i * 5 ^ (4 * (i div 5) + 2) + a4 i * 5 ^ (4 * (i div 5) + 3) + a5 i)"
 
-    have gen_bhle_nth: "gen_bhle a $ i =  (a0 i + M * (a0_rest i))" 
+    let ?P0 = "(\<lambda>i. b1 (i div 5 + 1) M (a!(i div 5)))"
+    let ?P1 = "(\<lambda>i. (if i div 5 < n-1 then b2 (i div 5 + 1) M  else b2_last (i div 5 + 1) M))"
+    let ?P2 = "(\<lambda>i. b3 (i div 5 + 1) M)"
+    let ?P3 = "(\<lambda>i. (if i div 5 < n-1 then b4 (i div 5 + 1) M (a!(i div 5)) 
+                      else b4_last (i div 5 + 1) M (a!(i div 5))))"
+    let ?P4 = "(\<lambda>i. b5 (i div 5 + 1) M)"
+
+    have cases_a0: "(a0 i + M * (a0_rest i)) = 
+      (if i mod 5 = 0 then ?P0 i else 
+      (if i mod 5 = 1 then ?P1 i else
+      (if i mod 5 = 2 then ?P2 i else
+      (if i mod 5 = 3 then ?P3 i else ?P4 i))))" 
+    if "i<5*n" for i
+    by (subst mod_5_if_split[of i "a0 i + M * (a0_rest i)" ?P0 ?P1 ?P2 ?P3 ?P4])
+       (auto simp add:  a0_def a0_rest_def a1_def a2_def a3_def a4_def a5_def b1_def b2_def 
+          b2_last_def b3_def b4_def b4_last_def b5_def)
+
+    have gen_bhle_nth: "gen_bhle a $ i = a0 i + M * (a0_rest i)" 
       if "i<dim_vec (gen_bhle a)" for i
-    unfolding gen_bhle_def Let_def unfolding M_def[symmetric] b_list_def b_list_last_def sorry
+    proof -
+      have dim_gen_bhle: "dim_vec (gen_bhle a) = 5 * n" 
+        unfolding n_def using \<open>length a >0\<close> dim_vec_gen_bhle by auto
+      have gen_bhle_subst: "gen_bhle a $ i = (concat
+         (map (\<lambda>i. b_list a i M) [0..<n - 1]) @ b_list_last a n M ) ! i"
+      (is "gen_bhle a $ i = (?concat_map @ ?last)! i")
+        unfolding gen_bhle_def Let_def unfolding M_def[symmetric] n_def vec_index_vec_of_list
+        using \<open>length a > 0\<close> by auto
+      have len_concat_map: "length ?concat_map = 5 * (n-1)"using length_concat_map_b_list .
+      show ?thesis
+      proof (cases "i div 5 < n-1")
+        case True
+        then have "i<5*(n-1)" by auto
+        then have j_th: "(?concat_map @ ?last)! i = ?concat_map ! i" 
+          by (subst nth_append, subst len_concat_map, auto)
+        have "concat (map (\<lambda>i. b_list a i M) [0..<n - 1]) ! i = 
+              concat (map (\<lambda>i. b_list a i M) [0..<n - 1]) ! (i mod 5 + 5*(i div 5))"
+          using mod_mult_div_eq[of i 5,symmetric] by auto
+        also have "\<dots> = (concat (map (\<lambda>i. b_list a i M) [0..<i div 5]) @ 
+          concat (map (\<lambda>i. b_list a i M) [i div 5..<n - 1]) ) ! (i mod 5 + 5*(i div 5))"
+          by (smt (z3) True append_self_conv2 concat_append less_zeroE linorder_neqE_nat 
+            map_append upt.simps(1) upt_append)
+        also have "\<dots> = concat (map (\<lambda>i. b_list a i M) [i div 5..<n - 1]) ! (i mod 5)"
+          using nth_append_length_plus[of "concat (map (\<lambda>i. b_list a i M) [0..<i div 5])" 
+            "concat (map (\<lambda>i. b_list a i M) [i div 5..<n - 1])" "i mod 5"] 
+            length_concat_map_b_list[of a M "i div 5"]
+          by auto
+        also have "\<dots> = (b_list a (i div 5) M @ 
+          concat (map (\<lambda>i. b_list a i M) [i div 5 +1..<n - 1])) ! (i mod 5)"
+          using True upt_conv_Cons by auto
+        also have "\<dots> = b_list a (i div 5) M  ! (i mod 5)" 
+          unfolding nth_append b_list_def by auto
+        finally have i_th: "?concat_map ! i = b_list a (i div 5) M ! (i mod 5)"
+          by auto
+        show ?thesis
+        apply(subst gen_bhle_subst, subst j_th, subst i_th, subst cases_a0) 
+          subgoal apply (use that dim_vec_gen_bhle n_def \<open>length a > 0\<close> in \<open>auto\<close>) done
+          subgoal apply (subst mod_5_if_split[of i "b_list a (i div 5) M ! (i mod 5)" ?P0 ?P1 ?P2 ?P3 ?P4])
+            apply (use True in \<open>auto simp add: b_list_def that\<close>) done
+        done
+      next
+        case False
+        then have "i \<ge> 5*(n-1)" by auto
+        then obtain j where "i = 5*(n-1) + j" and "j<5"
+          using \<open>i<dim_vec (gen_bhle a)\<close> \<open>length a > 0\<close>
+          unfolding dim_gen_bhle n_def
+          by (subst split_lower_plus_diff[of i "5*(length a-1)" "5*(length a)"], auto)
+        have j_th: "(?concat_map @ ?last)! i = ?last ! j" 
+          using \<open>i<dim_vec (gen_bhle a)\<close> nth_append_length_plus[of ?concat_map ?last j]
+          unfolding len_concat_map by (auto simp add: \<open>i = 5*(n-1) + j\<close> \<open>j<5\<close>)
+        have "j = i mod 5" using \<open>i = 5*(n-1) + j\<close> \<open>j<5\<close> by auto
+        have "n = i div 5 + 1" using \<open>i = 5*(n-1) + j\<close> \<open>j<5\<close> \<open>length a > 0\<close> n_def by auto
+        then have "i div 5 = n-1" by auto
+        have "last a = a ! (i div 5)" unfolding \<open>i div 5 = n-1\<close>
+          by (subst last_conv_nth[of a]) (use \<open>length a > 0\<close> n_def in \<open>auto\<close>)
+        show ?thesis 
+          apply(subst gen_bhle_subst, subst j_th, subst cases_a0)
+            subgoal apply (use that dim_vec_gen_bhle n_def \<open>length a > 0\<close> in \<open>auto\<close>) done
+            subgoal apply (subst mod_5_if_split[of i "b_list_last a n M ! j" ?P0 ?P1 ?P2 ?P3 ?P4])
+            apply (auto simp add: b_list_last_def that \<open>j = i mod 5\<close> \<open>n = i div 5 + 1\<close> 
+            \<open>last a = a ! (i div 5)\<close>)
+            done
+          done
+      qed
+    qed
 
 
     have  "gen_bhle a \<bullet> x = (\<Sum>i<5*n. x $ i *  (a0 i + M * a0_rest i))"
@@ -896,10 +1022,6 @@ proof (safe, goal_cases)
     then have sum_gen_bhle: "(\<Sum>i<5 * n. x $ i * (a0 i + M * a0_rest i)) = 0"
       using 1(1) by simp
 
-
-    (* have sum_gen_bhle: "gen_bhle a \<bullet> x = (\<Sum>i<n. a ! i * c i +  
-      M * (d1 i * 5^i + d2 i * 5^(i+1) + d3 i * 5^(i+2) + d4 i * 5^(i+4)))"
-      using 1(1) unfolding gen_bhle_def scalar_prod_def Let_def sorry*)
 
     have eq_0: "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+3)) * a!i) = 0" and
          eq_0': "(\<Sum>i<5*n. x$i * (a0_rest i)) = 0"
@@ -952,13 +1074,11 @@ proof (safe, goal_cases)
     have digit_a0_rest: "digit ?eq_0'_left k = 0" for k
       by (simp add: eq_0' digit_altdef)
 
-
     define d1 where "d1 = (\<lambda>i. x$(i*5) + x$(i*5+2))"
     define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
     define d3 where "d3 = (\<lambda>i. x$(i*5+2) + x$(i*5+3))"
     define d4 where "d4 = (\<lambda>i. x$(i*5) + x$(i*5+3) + x$(i*5+4))"
     define d5 where "d5 = (\<lambda>i. x$(5*i+1) + x$(5*i+3))"
-
 
     define d where "d = (\<lambda>k. 
       (if k mod 4 = 0 then 
@@ -967,6 +1087,21 @@ proof (safe, goal_cases)
       (if k mod 4 = 2 then d3 (k div 4) else d4 (k div 4)))))"
 
     have rewrite_digits: "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>k<4*n. d k * 5^k)"
+    proof -
+      have "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n.(\<Sum>j<5. x$(i*5+j) * (a0_rest (i*5+j))))"
+        using sum_split_idx_prod[of "(\<lambda>i. x $ i * a0_rest i)" n 5] 
+        unfolding mult.commute[of n 5] using atLeast0LessThan by auto
+      also have "\<dots> = (\<Sum>i<n. \<Sum>j<5. x $ (i * 5 + j) *
+           ((if j \<in> {0, 2} then 1 else 0) * 5 ^ (4 * i) +
+            (if j \<in> {0, 1} then 1 else 0) * 5 ^ (4 * i + 1) +
+            (if j \<in> {2, 3} then 1 else 0) * 5 ^ (4 * i + 2) +
+            (if j \<in> {0, 3, 4} then 1 else 0) * 5 ^ (4 * i + 3) +
+            (if j \<in> {1, 3} then if i < n - 1 then 5 ^ (4 * (i + 1)) else 1 else 0)))"
+      unfolding a0_rest_def a1_def a2_def a3_def a4_def a5_def  sorry
+      also have "\<dots> = 1" sorry
+      
+      finally show ?thesis sorry
+    qed
       unfolding d_def a0_rest_def sorry
   
     have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i sorry
@@ -976,18 +1111,41 @@ proof (safe, goal_cases)
       have "\<bar>d5 (n - Suc 0) + d1 0\<bar> \<le> \<bar>d5 (n - Suc 0)\<bar> + \<bar>d1 0\<bar>" 
         by (subst abs_triangle_ineq, auto)
       also have "\<dots> \<le> \<bar>x $ (5 * (n - Suc 0) + 1)\<bar> + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
+        \<bar>x $ (0 * 5) + x $ (0 * 5 + 2)\<bar>"
+        unfolding d1_def d5_def using abs_triangle_ineq by auto
+      also have "\<dots> \<le> \<bar>x $ (5 * (n - Suc 0) + 1)\<bar> + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
         \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
-        unfolding d1_def d5_def using abs_triangle_ineq apply auto
-
-using xi_le_1
-         sorry
+        using abs_triangle_ineq by auto
+      also have "\<dots> \<le> 1 + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
+        \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
+      proof -
+        have "5 * (n - Suc 0) + 1 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
+        then show ?thesis
+        using xi_le_1[of "(5 * (n - Suc 0) + 1)"] unfolding dim_vec_x_5n by simp
+      qed
+      also have "\<dots> \<le> 2 + \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
+      proof -
+        have "5 * (n - Suc 0) + 3 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
+        then show ?thesis
+        using xi_le_1[of "(5 * (n - Suc 0) + 3)"] unfolding dim_vec_x_5n by simp
+      qed
+      also have "\<dots> \<le> 1 + 1 + 1 + \<bar>x $ (0 * 5 + 2)\<bar>"
+        using xi_le_1[of "0"] unfolding dim_vec_x_5n using \<open>length a > 0\<close> n_def by simp
+      also have "\<dots> \<le> 4"
+      proof -
+        have "2 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
+        then show ?thesis
+        using xi_le_1[of "0*5+2"] unfolding dim_vec_x_5n by simp
+      qed
+      finally show ?thesis by linarith
+    qed
     moreover have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> < 5" if "0 < i" and "4 dvd i" for i sorry
     moreover have "\<bar>d2 (i div 4)\<bar> < 5"if "i mod 4 = 1" for i sorry
     moreover have "\<bar>d3 (i div 4)\<bar> < 5" if "i mod 4 = 2" for i sorry
     moreover have "\<bar>d4 (i div 4)\<bar> < 5" if "i mod 4 = 3" for i sorry
 
 
-    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i
+    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i sorry
     by (subst mod_4_choices[of i], unfold d_def, auto)
     
     have sum_zero: "(\<Sum>k<4*n. d k * 5^k) = 0" using eq_0' rewrite_digits by auto
