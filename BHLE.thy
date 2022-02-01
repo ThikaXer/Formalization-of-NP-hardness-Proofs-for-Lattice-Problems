@@ -853,6 +853,15 @@ lemma mod_4_choices:
   shows "P (i::nat)"
 using assms mod_exhaust_less_4 by auto
 
+lemma mod_4_if_split:
+  assumes "i mod 4 = 0 \<longrightarrow> P = P0 i"
+          "i mod 4 = 1 \<longrightarrow> P = P1 i"
+          "i mod 4 = 2 \<longrightarrow> P = P2 i"
+          "i mod 4 = 3 \<longrightarrow> P = P3 i"
+  shows "P = (if i mod 4 = 0 then P0 i else
+               (if i mod 4 = 1 then P1 i else
+               (if i mod 4 = 2 then P2 i else P3 (i::nat))))" (is "?P i")
+using mod_exhaust_less_4  by (auto simp add: assms)
 
 (*split into 5 mod classes*)
 
@@ -896,6 +905,7 @@ lemma split_lower_plus_diff:
   obtains j where "s = n+j" and "j<m-n"
 using assms 
 by (metis atLeastLessThan_iff diff_diff_left le_Suc_ex zero_less_diff)
+
 
 (*NP-hardnedd*)
 
@@ -1137,7 +1147,7 @@ proof (safe, goal_cases)
         (is "\<dots> = (\<Sum>i<n. \<Sum>j<5. ?f1 i j)")
       apply (subst sum.cong[of "{..<n}" "{..<n}" "(\<lambda>i. (\<Sum>j<(5::nat). ?f0 i j))" 
           "(\<lambda>i. (\<Sum>j<(5::nat). ?f1 i j))", symmetric], simp)
-      apply (subst sum.cong[of "{..<5}" "{..<5}"], simp) sorry
+      apply (subst sum.cong[of "{..<5}" "{..<5}"], simp)
       apply (unfold a0_rest_def a1_def a2_def a3_def a4_def a5_def, auto) 
       done
       also have "(\<Sum>i<n. \<Sum>j<5. ?f1 i j) = (\<Sum>i<n. f2 i)"
@@ -1174,87 +1184,196 @@ proof (safe, goal_cases)
       moreover have "(\<Sum>i<n. d1 i * (5 ^ (4 * i))) = d1 0 + (\<Sum>i<n-1. d1 (i + 1) * (5 ^ (4 * (i+1))))"
         using sum.lessThan_Suc_shift[of "(\<lambda>i. d1 i * 5 ^ (4 * i))" "n-1"] 
         using \<open>0 < length a\<close> n_def by force
-      moreover have "(\<Sum>i<n-1. d1 (i + 1) * (5 ^ (4 * (i+1)))) + (\<Sum>i<n-1. d5 i *  5 ^ (4 * (i + 1))) =
-        (\<Sum>i<n-1. (d1 (i+1) + d5 i) *  5 ^ (4 * (i + 1)))"  sorry
+      moreover have "(\<Sum>i<n-1. d1 (i + 1) * (5 ^ (4 * (i+1)))) + 
+        (\<Sum>i<n-1. d5 i *  5 ^ (4 * (i + 1))) =
+        (\<Sum>i<n-1. (d1 (i+1) + d5 i) *  5 ^ (4 * (i + 1)))" 
+        unfolding sum.distrib[of "(\<lambda>i. d1 (i + 1) * 5 ^ (4 * (i + 1)))" 
+          "(\<lambda>i. d5 i * 5 ^ (4 * (i + 1)))" "{..<n-1}", symmetric] 
+          distrib_right by simp 
       moreover have "(\<Sum>i<n-1. (d1 (i+1) + d5 i) *  5 ^ (4 * (i + 1))) = 
-        (\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i))" sorry
-      ultimately have "(\<Sum>i<5*n. x$i * (a0_rest i)) = 
-        (\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i)) +
-        (\<Sum>i<n. d2 i * 5 ^ (4 * i + 1)) + 
-        (\<Sum>i<n. d3 i * 5 ^ (4 * i + 2)) + 
-        (\<Sum>i<n. d4 i * 5 ^ (4 * i + 3)) +
-         d1 0 + d5 (n-1)"
-      finally show ?thesis sorry
+        (\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i))" 
+      proof -
+        have "bij_betw (\<lambda>i. i - 1) {1..<n} {..<n - 1}" unfolding bij_betw_def 
+          by (auto simp add: inj_on_def) 
+             (metis One_nat_def Suc_diff_1 Suc_leI Suc_mono \<open>0 < length a\<close> add_diff_cancel_left' 
+              atLeastLessThan_iff image_eqI n_def plus_1_eq_Suc zero_less_Suc)
+        then show ?thesis
+        by (subst sum.reindex_bij_betw[of "(\<lambda>i. i-1)" "{1..<n}" "{..<n-1}" 
+          "(\<lambda>i. (d1 (i + 1) + d5 i) * 5 ^ (4 * (i + 1)))", symmetric]) auto
+      qed
+      moreover have "(\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i)) + d1 0 + d5 (n-1) =
+        (\<Sum>i<n. (if i = 0 then d5 (n-1) + d1 0 else (d1 i + d5 (i-1))) * 5 ^ (4 * i))" 
+         using sum.atLeast_Suc_lessThan[OF \<open>0<length a\<close>, 
+          of "(\<lambda>i. (if i = 0 then d5 (n - 1) + d1 0 else d1 i + d5 (i - 1)) * 5 ^ (4 * i))"] 
+          unfolding atLeast0LessThan n_def by (auto)
+      ultimately have "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n. 
+        (if i = 0 then d5 (n - 1) + d1 0 else d1 i + d5 (i - 1)) * 5 ^ (4 * i) +
+         d2 i * 5 ^ (4 * i + 1) + d3 i * 5 ^ (4 * i + 2) + d4 i * 5 ^ (4 * i + 3))" 
+        (is "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n. ?f5 i)") by auto
+      moreover have "\<dots> = (\<Sum>i<n. (\<Sum>j<4. d (i*4+j) * 5^(i*4+j)))"
+      proof (subst sum.cong[of "{..<n}" "{..<n}" ?f5 "(\<lambda>i. (\<Sum>j<4. d (i*4+j) * 5^(i*4+j)))"], 
+        goal_cases)
+        case (2 i)
+        have d_rew: "(\<Sum>j<4. d (i * 4 + j) * 5 ^ (i * 4 + j)) = 
+          d (i * 4) * 5 ^ (i * 4) + d (i * 4 + 1) * 5 ^ (i * 4 + 1) +
+          d (i * 4 + 2) * 5 ^ (i * 4 + 2) + d (i * 4 + 3) * 5 ^ (i * 4 + 3)" 
+          by (simp add: eval_nat_numeral)
+        have d1_rew: "d (i * 4) = (if i = 0 then d5 (n - 1) + d1 0 else d1 i + d5 (i - 1))"
+          unfolding d_def by auto
+        have d2_rew: "d (i*4+1) = d2 i" unfolding d_def
+          by (metis add.commute add.right_neutral div_mult_self3 mod_Suc mod_div_trivial 
+          mod_mult_self2_is_0 one_eq_numeral_iff plus_1_eq_Suc semiring_norm(85) zero_neq_numeral)
+        have d3_rew: "d (i*4+2) = d3 i" unfolding d_def
+          by (metis add.commute add_2_eq_Suc' add_cancel_right_left div_less div_mult_self1 
+          less_Suc_eq mod_mult_self1 nat_mod_lem numeral_Bit0 one_add_one zero_neq_numeral)
+        have d4_rew: "d (i*4+3) = d4 i" unfolding d_def by auto
+        show ?case by (subst d_rew, subst d1_rew, subst d2_rew, subst d3_rew, subst d4_rew) 
+           (auto simp add: mult.commute)
+      qed auto
+      moreover have "\<dots> = (\<Sum>k<4*n. d k * 5^k)" 
+        using sum_split_idx_prod[of "(\<lambda>k. d k * 5^k)" n 4, symmetric]
+        by (simp add: lessThan_atLeast0 mult.commute)
+      ultimately show ?thesis by auto
     qed
-      unfolding d_def a0_rest_def sorry
   
-    have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i sorry
+    have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i 
+      using 1(5) that unfolding linf_norm_vec_Max by auto
+    have xs_le_2: "\<bar>x$i + x$j\<bar>\<le>2" if "i< dim_vec x" "j< dim_vec x" for i j
+    proof - 
+      have "\<bar>x$i + x$j\<bar> \<le> \<bar>x$i\<bar> + \<bar>x$j\<bar>"
+      by (auto simp add: abs_triangle_ineq)
+      then show ?thesis using xi_le_1[OF that(1)] xi_le_1[OF that(2)] by auto
+    qed
 
     have " \<bar>d5 (n - Suc 0) + d1 0\<bar> < 5"
     proof -
       have "\<bar>d5 (n - Suc 0) + d1 0\<bar> \<le> \<bar>d5 (n - Suc 0)\<bar> + \<bar>d1 0\<bar>" 
         by (subst abs_triangle_ineq, auto)
-      also have "\<dots> \<le> \<bar>x $ (5 * (n - Suc 0) + 1)\<bar> + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
-        \<bar>x $ (0 * 5) + x $ (0 * 5 + 2)\<bar>"
-        unfolding d1_def d5_def using abs_triangle_ineq by auto
-      also have "\<dots> \<le> \<bar>x $ (5 * (n - Suc 0) + 1)\<bar> + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
-        \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
-        using abs_triangle_ineq by auto
-      also have "\<dots> \<le> 1 + \<bar>x $ (5 * (n - Suc 0) + 3)\<bar> + 
-        \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
+      also have "\<dots> \<le> 2 + \<bar>d1 0\<bar>" 
       proof -
         have "5 * (n - Suc 0) + 1 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        then show ?thesis
-        using xi_le_1[of "(5 * (n - Suc 0) + 1)"] unfolding dim_vec_x_5n by simp
+        moreover have "5 * (n - Suc 0) + 3 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
+        ultimately show ?thesis unfolding d5_def 
+        using xs_le_2[of "5 * (n - Suc 0) + 1" "5 * (n - Suc 0) + 3"] unfolding dim_vec_x_5n
+        by simp
       qed
-      also have "\<dots> \<le> 2 + \<bar>x $ (0 * 5)\<bar> + \<bar>x $ (0 * 5 + 2)\<bar>"
-      proof -
-        have "5 * (n - Suc 0) + 3 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        then show ?thesis
-        using xi_le_1[of "(5 * (n - Suc 0) + 3)"] unfolding dim_vec_x_5n by simp
-      qed
-      also have "\<dots> \<le> 1 + 1 + 1 + \<bar>x $ (0 * 5 + 2)\<bar>"
-        using xi_le_1[of "0"] unfolding dim_vec_x_5n using \<open>length a > 0\<close> n_def by simp
-      also have "\<dots> \<le> 4"
+      also have "\<dots> \<le> 4" 
       proof -
         have "2 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        then show ?thesis
-        using xi_le_1[of "0*5+2"] unfolding dim_vec_x_5n by simp
+        then show ?thesis unfolding d1_def
+        using xi_le_1[of "0"] xi_le_1[of "0*5+2"] unfolding dim_vec_x_5n 
+        using \<open>length a > 0\<close> n_def by simp
       qed
       finally show ?thesis by linarith
     qed
-    moreover have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> < 5" if "0 < i" and "4 dvd i" for i sorry
-    moreover have "\<bar>d2 (i div 4)\<bar> < 5"if "i mod 4 = 1" for i sorry
-    moreover have "\<bar>d3 (i div 4)\<bar> < 5" if "i mod 4 = 2" for i sorry
-    moreover have "\<bar>d4 (i div 4)\<bar> < 5" if "i mod 4 = 3" for i sorry
+
+    moreover have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> < 5" 
+      if "0 < i" and "i<4*n" and "i mod 4 = 0" for i 
+    proof -
+      have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> \<le> \<bar>d1 (i div 4)\<bar> + \<bar>d5 (i div 4 - Suc 0)\<bar>" 
+        by (subst abs_triangle_ineq, auto)
+      also have "\<dots> \<le> 2 + \<bar>d5 (i div 4 - Suc 0)\<bar>"
+      proof -
+        have "i div 4 * 5 + 1 < 5 * n" using that \<open>0 < length a\<close> n_def by linarith
+        moreover have "i div 4 * 5 + 2 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
+        ultimately show ?thesis unfolding d1_def
+        using xs_le_2[of "(i div 4 * 5)" "i div 4 * 5 + 2"] unfolding dim_vec_x_5n by simp
+      qed
+      also have "\<dots> \<le> 4"
+      proof -
+        have "5 * (i div 4 - Suc 0) + 1 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
+        moreover have "5 * (i div 4 - Suc 0) + 3 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
+        ultimately show ?thesis unfolding d5_def
+        using xs_le_2[of "5 * (i div 4 - Suc 0) + 1"] unfolding dim_vec_x_5n by simp
+      qed
+      finally show ?thesis by linarith
+    qed
+
+    moreover have "\<bar>d2 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 1" for i 
+    proof -
+      have "i div 4 * 5 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
+      moreover have "i div 4 * 5 +1 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
+      ultimately show ?thesis unfolding d2_def
+        using xs_le_2[of "i div 4 * 5" "i div 4 * 5 +1"] unfolding dim_vec_x_5n by simp
+    qed
+
+    moreover have "\<bar>d3 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 2" for i 
+    proof -
+      have *:  "i div 4 * 5 \<le> (n-1) * 5" using that \<open>length a > 0\<close> n_def by auto
+      then have "i div 4 * 5 +3 < 5 * n" using that by auto
+      moreover have "i div 4 * 5 + 2 < 5 * n" using that * by auto
+      ultimately show ?thesis unfolding d3_def
+        using xs_le_2[of "i div 4 * 5 +3" "i div 4 * 5 +2"] unfolding dim_vec_x_5n by simp
+    qed
+
+    moreover have "\<bar>d4 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 3" for i 
+    proof -
+      have *:  "i div 4 * 5 \<le> (n-1) * 5" using that \<open>length a > 0\<close> n_def by auto
+      have "\<bar>d4 (i div 4)\<bar> \<le> \<bar>x $ (i div 4 * 5) + x $ (i div 4 * 5 + 3)\<bar> + \<bar>x $ (i div 4 * 5 + 4)\<bar>"
+        unfolding d4_def by (auto simp add: abs_triangle_ineq)
+      moreover {
+      have "i div 4 * 5 +3 < 5 * n" using that * by auto
+      moreover have "i div 4 * 5 < 5 * n" using that * by auto
+      ultimately have "\<bar>x $ (i div 4 * 5) + x $ (i div 4 * 5 + 3)\<bar>\<le>2"
+        using xs_le_2[of "i div 4 * 5" "i div 4 * 5 +3"] unfolding dim_vec_x_5n by simp
+      }
+      moreover {
+      have "i div 4 * 5 +4 < 5 * n" using that * by auto
+      then have "\<bar>x $ (i div 4 * 5 + 4)\<bar> \<le> 1" using xi_le_1 unfolding dim_vec_x_5n by simp
+      }
+      ultimately show ?thesis by linarith
+    qed
 
 
-    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i sorry
-    by (subst mod_4_choices[of i], unfold d_def, auto)
+    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i
+      using that by (subst mod_4_choices[of i], unfold d_def, auto)
     
     have sum_zero: "(\<Sum>k<4*n. d k * 5^k) = 0" using eq_0' rewrite_digits by auto
 
     then have d_eq_0: "d k = 0" if "k<4*n" for k 
       using respresentation_in_basis_eq_zero[OF sum_zero _ _ that] d_lt_5 by auto
 
-
+    (*These are the main equations*)
     have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i
-      using d_eq_0[of "4*i"] sorry
+      using that d_eq_0[of "4*i"] unfolding d_def d1_def d5_def by (auto simp add: mult.commute)
+
     have eq_2: "x$0 + x$2 + x$((n-1)*5+1) + x$((n-1)*5+3) = 0" 
-      using d_eq_0[of "0"]sorry
+      using d_eq_0[of "0"] unfolding d_def d1_def d5_def
+      by (smt (z3) \<open>0 < length a\<close> add_cancel_right_left bits_mod_0 bot_nat_0.not_eq_extremum 
+      mult.commute mult_is_0 n_def zero_neq_numeral)
+
     have eq_3: "x$(i*5) + x$(i*5+1) = 0" if "i\<in>{0..<n}" for i 
-      using d_eq_0[of "4*i+1"]sorry
+      using that d_eq_0[of "4*i+1"] unfolding d_def d2_def
+      by (auto, metis add.right_neutral div_less div_mult_self1 mult.commute one_less_numeral_iff 
+        plus_1_eq_Suc semiring_norm(76) zero_neq_numeral)
+
     have eq_4: "x$(i*5+2) + x$(i*5+3) = 0" if "i\<in>{0..<n}" for i 
-      using d_eq_0[of "4*i+2"]sorry
+      using that d_eq_0[of "4*i+2"] unfolding d_def d3_def
+      by (auto, smt (verit, ccfv_threshold) Suc_times_numeral_mod_eq add.right_neutral 
+        add_2_eq_Suc' add_self_div_2 div_mult_self4 mod_Suc mod_div_trivial 
+        numeral_Bit0_div_2 one_eq_numeral_iff plus_1_eq_Suc semiring_norm(85))
+
     have eq_5: "x$(i*5) + x$(i*5+3) + x$(i*5+4) = 0" if "i\<in>{0..<n}" for i 
-      using d_eq_0[of "4*i+3"]sorry
+      using that d_eq_0[of "4*i+3"] unfolding d_def d4_def by auto
     
-    have "x$(5*i) + x$(5*i+2) = x$(5*(i-1)) + x$(5*(i-1)+2)" if "i\<in>{1..<n}" for i sorry
+    have eq_3': "x$(i*5) = - x$(i*5+1)" if "i\<in>{0..<n}" for i
+      using eq_3[OF that] by auto
+
+    have eq_4': "x$(i*5+2) = - x$(i*5+3)" if "i\<in>{0..<n}" for i
+      using eq_4[OF that] by auto
+
+    have "x$(i*5) + x$(i*5+2) = x$((i-1)*5) + x$((i-1)*5+2)" if "i\<in>{1..<n}" for i 
+    proof -
+      have *: "i - 1 \<in> {0..<n}" using that by auto
+      then show ?thesis using eq_1[OF that] 
+      by (subst eq_3'[OF *], subst eq_4'[OF *], auto)
+    qed
+
     define w where "w = x$0 + x$2"
   (*This is the weight of the solution, since $x_{i,0} + x_{i,2}$ does not depend on the index i.*)
     
 
-    have "\<bar>w\<bar> \<le> 1" using eq_4 w_def sorry
+    have "\<bar>w\<bar> \<le> 1" using eq_3' eq_4' w_def sorry
 
     moreover have "w\<noteq>0" sorry
 
