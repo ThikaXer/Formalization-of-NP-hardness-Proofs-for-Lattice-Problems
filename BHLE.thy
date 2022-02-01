@@ -1083,12 +1083,49 @@ proof (safe, goal_cases)
     define d where "d = (\<lambda>k. 
       (if k mod 4 = 0 then 
           (if k = 0 then d5 (n-1) + d1 0 else (d1 (k div 4) + d5 (k div 4 -1))) else
-      (if k mod 4 = 1 then d2 (k div 4) else 
+      (if k mod 4 = 1 then d2 (k div 4) else                  
       (if k mod 4 = 2 then d3 (k div 4) else d4 (k div 4)))))"
 
     have rewrite_digits: "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>k<4*n. d k * 5^k)"
     proof -
+      define f2 where "f2 = (\<lambda>i. 
+          x $ (i * 5) * (5 ^ (4 * i) + 5 ^ (4 * i + 1) + 5 ^ (4 * i + 3)) +
+          x $ (i * 5 + 1) * (5 ^ (4 * i + 1) + (if i < n - 1 then 5 ^ (4 * (i + 1)) else 1)) +
+          x $ (i * 5 + 2) * (5 ^ (4 * i) + 5 ^ (4 * i + 2)) +
+          x $ (i * 5 + 3) * (5 ^ (4 * i + 2) + 5 ^ (4 * i + 3) + 
+            (if i < n - 1 then 5 ^ (4 * (i + 1)) else 1)) +
+          x $ (i * 5 + 4) * (5 ^ (4 * i + 3)))"
+      define f3 where "f3 = (\<lambda>i. 
+          d1 i * (5 ^ (4 * i)) + d5 i * (if i < n - 1 then 5 ^ (4 * (i + 1)) else 1) +
+          d2 i * 5 ^ (4 * i + 1) + d3 i * 5 ^ (4 * i + 2) + d4 i * 5 ^ (4 * i + 3))"
+      have f2_f3: "f2 i = f3 i" if "i<n" for i 
+      proof (cases "i<n-1")
+        case True
+        then have "f2 i = x $ (i * 5) * 5 ^ (4 * i) + x $ (i * 5) * 5 ^ (4 * i + 1) + 
+          x $ (i * 5) * 5 ^ (4 * i + 3) +
+          x $ (i * 5 + 1) * 5 ^ (4 * i + 1) + x $ (i * 5 + 1) * 5 ^ (4 * (i + 1)) +
+          x $ (i * 5 + 2) * 5 ^ (4 * i) + x $ (i * 5 + 2) * 5 ^ (4 * i + 2) +
+          x $ (i * 5 + 3) * 5 ^ (4 * i + 2) + x $ (i * 5 + 3) * 5 ^ (4 * i + 3) + 
+          x $ (i * 5 + 3) * 5 ^ (4 * (i + 1)) + x $ (i * 5 + 4) * 5 ^ (4 * i + 3)"
+        unfolding f2_def by (subst ring_distribs)+ simp
+        also have "\<dots> = f3 i" unfolding f3_def d1_def d2_def d3_def d4_def d5_def using True 
+          by (subst distrib_right)+  (simp add: mult.commute[of 5 i])
+        ultimately show ?thesis by auto
+      next
+        case False
+        then have "f2 i = x $ (i * 5) * 5 ^ (4 * i) + x $ (i * 5) * 5 ^ (4 * i + 1) + 
+          x $ (i * 5) * 5 ^ (4 * i + 3) +
+          x $ (i * 5 + 1) * 5 ^ (4 * i + 1) + x $ (i * 5 + 1) +
+          x $ (i * 5 + 2) * 5 ^ (4 * i) + x $ (i * 5 + 2) * 5 ^ (4 * i + 2) +
+          x $ (i * 5 + 3) * 5 ^ (4 * i + 2) + x $ (i * 5 + 3) * 5 ^ (4 * i + 3) + 
+          x $ (i * 5 + 3) + x $ (i * 5 + 4) * 5 ^ (4 * i + 3)"
+        unfolding f2_def by (subst ring_distribs)+ simp
+        also have "\<dots> = f3 i" unfolding f3_def d1_def d2_def d3_def d4_def d5_def using False 
+          by (subst distrib_right)+  (simp add: mult.commute[of 5 i])
+        ultimately show ?thesis by auto
+      qed
       have "(\<Sum>i<5*n. x$i * (a0_rest i)) = (\<Sum>i<n.(\<Sum>j<5. x$(i*5+j) * (a0_rest (i*5+j))))"
+        (is "(\<Sum>i<5*n. x$i * (a0_rest i)) =  (\<Sum>i<n.(\<Sum>j<5. ?f0 i j))")
         using sum_split_idx_prod[of "(\<lambda>i. x $ i * a0_rest i)" n 5] 
         unfolding mult.commute[of n 5] using atLeast0LessThan by auto
       also have "\<dots> = (\<Sum>i<n. \<Sum>j<5. x $ (i * 5 + j) *
@@ -1097,9 +1134,56 @@ proof (safe, goal_cases)
             (if j \<in> {2, 3} then 1 else 0) * 5 ^ (4 * i + 2) +
             (if j \<in> {0, 3, 4} then 1 else 0) * 5 ^ (4 * i + 3) +
             (if j \<in> {1, 3} then if i < n - 1 then 5 ^ (4 * (i + 1)) else 1 else 0)))"
-      unfolding a0_rest_def a1_def a2_def a3_def a4_def a5_def  sorry
-      also have "\<dots> = 1" sorry
-      
+        (is "\<dots> = (\<Sum>i<n. \<Sum>j<5. ?f1 i j)")
+      apply (subst sum.cong[of "{..<n}" "{..<n}" "(\<lambda>i. (\<Sum>j<(5::nat). ?f0 i j))" 
+          "(\<lambda>i. (\<Sum>j<(5::nat). ?f1 i j))", symmetric], simp)
+      apply (subst sum.cong[of "{..<5}" "{..<5}"], simp) sorry
+      apply (unfold a0_rest_def a1_def a2_def a3_def a4_def a5_def, auto) 
+      done
+      also have "(\<Sum>i<n. \<Sum>j<5. ?f1 i j) = (\<Sum>i<n. f2 i)"
+        unfolding f2_def by (simp add: eval_nat_numeral)
+      also have "\<dots> = (\<Sum>i<n-1. f2 i) + f2 (n-1)"
+        by (subst sum.lessThan_Suc[of f2 "n-1", symmetric])
+        (use Suc_diff_1 \<open>0 < length a\<close> n_def in \<open>presburger\<close>)
+      also have "\<dots> = (\<Sum>i<n-1. f3 i) + f3 (n-1)" 
+        by (subst sum.cong[of "{..<n-1}" "{..<n-1}" f2 f3], auto simp add: f2_f3)
+           (use f2_f3[of "n-1"] \<open>length a > 0\<close> n_def in \<open>auto\<close>)
+      also have "\<dots> = (\<Sum>i<n-1.  d1 i * (5 ^ (4 * i)) + d5 i *  5 ^ (4 * (i + 1)) +
+          d2 i * 5 ^ (4 * i + 1) + d3 i * 5 ^ (4 * i + 2) + d4 i * 5 ^ (4 * i + 3) ) +
+          d1 (n-1) * (5 ^ (4 * (n-1))) + d5 (n-1) + d2 (n-1) * 5 ^ (4 * (n-1) + 1) + 
+          d3 (n-1) * 5 ^ (4 * (n-1) + 2) + d4 (n-1) * 5 ^ (4 * (n-1) + 3)"
+        unfolding f3_def by auto
+      also have "\<dots> = (\<Sum>i<n-1.  d1 i * (5 ^ (4 * i))) + d1 (n-1) * (5 ^ (4 * (n-1))) +
+                      (\<Sum>i<n-1. d2 i * 5 ^ (4 * i + 1)) + d2 (n-1) * 5 ^ (4 * (n-1) + 1) + 
+                      (\<Sum>i<n-1. d3 i * 5 ^ (4 * i + 2)) + d3 (n-1) * 5 ^ (4 * (n-1) + 2) + 
+                      (\<Sum>i<n-1. d4 i * 5 ^ (4 * i + 3)) + d4 (n-1) * 5 ^ (4 * (n-1) + 3) +
+                      (\<Sum>i<n-1. d5 i *  5 ^ (4 * (i + 1))) + d5 (n-1)"
+      by auto
+      also have "\<dots> = (\<Sum>i<n. d1 i * (5 ^ (4 * i))) +
+                      (\<Sum>i<n. d2 i * 5 ^ (4 * i + 1)) + 
+                      (\<Sum>i<n. d3 i * 5 ^ (4 * i + 2)) + 
+                      (\<Sum>i<n. d4 i * 5 ^ (4 * i + 3)) +
+                      (\<Sum>i<n-1. d5 i *  5 ^ (4 * (i + 1))) +
+                       d5 (n-1)" (is "\<dots> = ?f4")
+        using sum.lessThan_Suc[of "(\<lambda>i. d1 i * 5 ^ (4 * i))" "n-1"]
+        using sum.lessThan_Suc[of "(\<lambda>i. d2 i * 5 ^ (4 * i + 1))" "n-1"]
+        using sum.lessThan_Suc[of "(\<lambda>i. d3 i * 5 ^ (4 * i + 2))" "n-1"]
+        using sum.lessThan_Suc[of "(\<lambda>i. d4 i * 5 ^ (4 * i + 3))" "n-1"]
+        using \<open>0 < length a\<close> n_def by force
+      finally have "(\<Sum>i<5*n. x$i * (a0_rest i)) = ?f4" by auto
+      moreover have "(\<Sum>i<n. d1 i * (5 ^ (4 * i))) = d1 0 + (\<Sum>i<n-1. d1 (i + 1) * (5 ^ (4 * (i+1))))"
+        using sum.lessThan_Suc_shift[of "(\<lambda>i. d1 i * 5 ^ (4 * i))" "n-1"] 
+        using \<open>0 < length a\<close> n_def by force
+      moreover have "(\<Sum>i<n-1. d1 (i + 1) * (5 ^ (4 * (i+1)))) + (\<Sum>i<n-1. d5 i *  5 ^ (4 * (i + 1))) =
+        (\<Sum>i<n-1. (d1 (i+1) + d5 i) *  5 ^ (4 * (i + 1)))"  sorry
+      moreover have "(\<Sum>i<n-1. (d1 (i+1) + d5 i) *  5 ^ (4 * (i + 1))) = 
+        (\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i))" sorry
+      ultimately have "(\<Sum>i<5*n. x$i * (a0_rest i)) = 
+        (\<Sum>i\<in>{1..<n}. (d1 i + d5 (i-1)) *  5 ^ (4 * i)) +
+        (\<Sum>i<n. d2 i * 5 ^ (4 * i + 1)) + 
+        (\<Sum>i<n. d3 i * 5 ^ (4 * i + 2)) + 
+        (\<Sum>i<n. d4 i * 5 ^ (4 * i + 3)) +
+         d1 0 + d5 (n-1)"
       finally show ?thesis sorry
     qed
       unfolding d_def a0_rest_def sorry
