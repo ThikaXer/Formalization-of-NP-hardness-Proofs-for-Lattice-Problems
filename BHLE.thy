@@ -50,8 +50,10 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
 definition b_list :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
   "b_list as i M = [b1 (i+1) M (as!i), b2 (i+1) M, b3 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M]"
 
+(* omit the 3rd entry in the last list. This ensures that the weight of the solution is 1 or -1,
+essential for the proof of NP-hardnes*)
 definition b_list_last :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
-  "b_list_last as n M = [b1 n M (last as), b2_last n M, b3 n M, b4_last n M (last as), b5 n M]"
+  "b_list_last as n M = [b1 n M (last as), b2_last n M, b4_last n M (last as), b5 n M]"
 
 definition gen_bhle :: "int list \<Rightarrow> int vec" where
 "gen_bhle as = (let M = 2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1; n = length as in
@@ -80,7 +82,7 @@ by (induct xs, auto)
 
 lemma dim_vec_gen_bhle:
   assumes "as\<noteq>[]"
-  shows "dim_vec (gen_bhle as) = 5 * (length as)"
+  shows "dim_vec (gen_bhle as) = 5 * (length as) - 1"
 using assms 
 proof (induct as rule: list_nonempty_induct)
   case (single x)
@@ -110,7 +112,7 @@ lemma length_b_list:
   "length (b_list a i M) = 5" unfolding b_list_def by auto
 
 lemma length_b_list_last:
-  "length (b_list_last a n M) = 5" unfolding b_list_last_def by auto
+  "length (b_list_last a n M) = 4" unfolding b_list_last_def by auto
 
 lemma length_concat_map_b_list:
   "length (concat (map (\<lambda>i. b_list as i M) [0..<k])) = 5 * k"
@@ -152,27 +154,11 @@ next
      (auto split: if_splits simp add: b_list_last_def)
 qed
 
-lemma gen_bhle_last2:
-  assumes "length as > 0"
-  shows "(gen_bhle as) $ ((length as -1) * 5 + 2) = 
-    b3 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
-proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
-  goal_cases)
-  case 1
-  then show ?case using assms
-    by (subst dim_vec_of_list)+ (split if_split, 
-      subst length_b_list_last, subst length_concat_map_b_list, auto) 
-next
-  case 2
-  then show ?case using assms
-  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
-     (auto split: if_splits simp add: b_list_last_def)
-qed
-
+(* the third entry of the last tuple is omitted, thus we skip one lemma*)
 
 lemma gen_bhle_last3:
   assumes "length as > 0"
-  shows "(gen_bhle as) $ ((length as -1) * 5 + 3) = 
+  shows "(gen_bhle as) $ ((length as -1) * 5 + 2) = 
     b4_last (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (last as)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
@@ -189,7 +175,7 @@ qed
 
 lemma gen_bhle_last4:
   assumes "length as > 0"
-  shows "(gen_bhle as) $ ((length as-1) * 5 + 4) = 
+  shows "(gen_bhle as) $ ((length as-1) * 5 + 3) = 
     b5 (length as) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
@@ -478,64 +464,8 @@ next
   qed
 qed
 
-
-
-(*list
-
-lemma split_eq_system_list:
-  assumes "\<forall>i<n. a!i = b!i + M * c!i" 
-          "length (a::int list) = n" 
-          "length (b::int list) = n" 
-          "length (c::int list) = n" 
-          "length (x::int list) = n"
-          "M > k * (\<Sum>i<n. \<bar>b!i\<bar>)"
-          "\<forall>i<n. \<bar>x!i\<bar> \<le>k" 
-          "k>0"
-  shows "(\<Sum>i<n. x!i * a!i) = 0 \<longleftrightarrow> (\<Sum>i<n. x!i * b!i) = 0 \<and> (\<Sum>i<n. x!i * c!i) = 0"
-using assms proof (safe, goal_cases)
-  case 1
-  then show ?case 
-  proof (cases "(\<Sum>i<n. x!i * c!i) = 0")
-    case True
-    then show ?thesis using split_sum 1 by auto
-  next
-    case False
-    then have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> < M * \<bar>(\<Sum>i<n. x!i * c!i)\<bar>" 
-      using lt_M[OF assms(3) assms(5) assms(6) assms(7) assms(8)] False 
-      by (smt (verit, best) mult_less_cancel_left2)
-    moreover have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> = M * \<bar>(\<Sum>i<n. x!i * c!i)\<bar>" 
-      using split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)] assms
-      by (smt (z3) "1"(9) lt_M[OF assms(3) assms(5) assms(6) assms(7) assms(8)]
-        mult_le_0_iff mult_minus_right)
-    ultimately have False by linarith 
-    then show ?thesis by auto
-  qed
-next
-  case 2
-  then show ?case 
-  proof (cases "(\<Sum>i<n. x!i * b!i) = 0")
-    case True
-    then show ?thesis using split_sum 2 using lt_M[OF assms(3) assms(5) assms(6) assms(7) assms(8)]
-       by auto
-  next
-    case False
-    then have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> < M * \<bar>(\<Sum>i<n. x!i * c!i)\<bar>" 
-      using lt_M[OF assms(3) assms(5) assms(6) assms(7) assms(8)] False
-      by (smt (verit, best) "2"(8) "2"(9) mult_eq_0_iff mult_le_cancel_left1 
-        split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)])
-    moreover have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> = M * \<bar>(\<Sum>i<n. x!i * c!i)\<bar>" 
-      using split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)] assms
-      by (smt (z3) "2"(9) lt_M[OF assms(3) assms(5) assms(6) assms(7) assms(8)]
-         mult_le_0_iff mult_minus_right)
-    ultimately have False by linarith 
-    then show ?thesis by auto
-  qed
-next
-  case 3
-  then show ?case using split_sum[OF assms(1) assms(2) assms(3) assms(4) assms(5)] by auto
-qed
-
-*)
+value "let x = [0,1,2,3,4::int] in
+  take (length x - 3) x @ drop (length x -2) x"
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -550,18 +480,31 @@ proof (safe, goal_cases)
   have "length a > 0" using \<open>a\<noteq>[]\<close> by auto
   define n where "n = length a"
   define minus_x::"int list" where "minus_x = [0,0,1,-1,1]"
+  define minus_x_last::"int list" where "minus_x_last = [0,0,-1,1]"
   define plus_x::"int list" where "plus_x = [1,-1,0,0,-1]"
+  define plus_x_last::"int list" where "plus_x_last = [1,-1,0,-1]"
   define x::"int vec" where 
-    "x = vec_of_list (concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [0..<n]))"
-  have dimx_eq_5dima:"dim_vec x = length a * 5" unfolding x_def plus_x_def minus_x_def n_def 
-    by (induct a , auto)
-  then have "0 < dim_vec x" using \<open>length a > 0\<close> by auto
+    "x = vec_of_list(concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [0..<n-1]) @ 
+      (if  n-1 \<in> I then plus_x_last else minus_x_last))"
+  have length_concat_map: "length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) 
+    [0..<b])) = b*5" for b 
+    unfolding plus_x_def minus_x_def by (induct b, auto)
+  have dimx_eq_5dima:"dim_vec x = length a * 5 - 1" 
+  proof -
+    have **: "length (if n - 1 \<in> I then plus_x_last else minus_x_last) = 4"
+      unfolding plus_x_last_def minus_x_last_def by auto
+    show ?thesis unfolding x_def dim_vec_of_list length_append length_concat_map ** 
+      using \<open>length a > 0\<close> unfolding n_def[symmetric] by auto
+  qed
+  have "0 < dim_vec x" unfolding dimx_eq_5dima using \<open>length a > 0\<close> by linarith
   define M where "M = 2*(\<Sum>i<length a. \<bar>a!i\<bar>)+1"
 
 (*lemmas for proof*)
   have x_nth: 
-    "x $ (i*5+j) = (if i\<in>I then plus_x ! j else minus_x ! j)" if "i<n" "j<5" for i j 
+    "x $ (i*5+j) = (if i\<in>I then plus_x ! j else minus_x ! j)" if "i<n-1" "j<5" for i j 
   proof -
+    have lt: "i * 5 + j < length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n - 1]))"
+      using that length_concat_map by auto
     have len_rew: "i*5 = length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i]))"
     proof -
       have if_rew: "(\<lambda>i. if i\<in>I then plus_x else minus_x) = 
@@ -575,28 +518,28 @@ proof (safe, goal_cases)
         "(\<lambda>i. if i\<in>I then plus_x!3 else minus_x!3)" "(\<lambda>i. if i\<in>I then plus_x!4 else minus_x!4)"
         "[0..<i]"] by auto
     qed
-    have map_rew: "map f [0..<n] = map f [0..<i] @ map f [i..<n]" for f ::"nat \<Rightarrow> int list"
-      using that(1) by (metis list_trisect map_append n_def upt_conv_Cons)
-    have "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n]) ! (i * 5 + j) =
-          concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n]) ! j"
+    have map_rew: "map f [0..<n-1] = map f [0..<i] @ map f [i..<n-1]" for f ::"nat \<Rightarrow> int list"
+      using that(1) by (metis append_Nil map_append not_gr_zero upt_0 upt_append)
+    have "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n-1]) ! (i * 5 + j) =
+          concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n-1]) ! j"
      by (subst map_rew, subst concat_append, subst len_rew)
         (subst nth_append_length_plus[of 
           "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i])"], simp)
     also have "\<dots> = (if i \<in> I then plus_x!j else minus_x!j)"
     proof -
-      have concat_rewr: "concat (map f [i..<n])=
-       (f i) @ (concat (map f [i+1..<n]))" for f::"nat \<Rightarrow> int list"
-        by (simp add: that(1) upt_conv_Cons)
+      have concat_rewr: "concat (map f [i..<n-1])=
+       (f i) @ (concat (map f [i+1..<n-1]))" for f::"nat \<Rightarrow> int list"
+       using that(1) upt_conv_Cons by force
       have length_if: "length (if i \<in> I then plus_x else minus_x) = 5" 
         unfolding plus_x_def minus_x_def by auto
       show ?thesis unfolding concat_rewr nth_append length_if using \<open>j<5\<close> by auto
     qed
-    finally show ?thesis unfolding x_def by (subst vec_index_vec_of_list, auto)
+    finally show ?thesis unfolding x_def by (subst vec_index_vec_of_list) 
+      (subst nth_append, use lt in \<open>auto\<close>) 
   qed
 
-  
   have x_nth0:
-    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n" for i 
+    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n-1" for i 
     using that by (subst x_nth[of i 0,symmetric], auto)
 
   have gen_bhle_in_I:
@@ -668,7 +611,7 @@ proof (safe, goal_cases)
     using 1 n_def \<open>length a > 0\<close> unfolding n_def
     apply (subst gen_bhle_last0[of a, OF \<open>length a > 0\<close>])
     apply (subst gen_bhle_last1[of a, OF \<open>length a > 0\<close>])
-    apply (subst gen_bhle_last2[of a, OF \<open>length a > 0\<close>])
+
     apply (subst gen_bhle_last3[of a, OF \<open>length a > 0\<close>])
     apply (subst gen_bhle_last4[of a, OF \<open>length a > 0\<close>]) using x_nth[of "n-1"]
     apply (subst x_nth[of "length a-1"], simp add: n_def, linarith)+
