@@ -480,58 +480,67 @@ proof (safe, goal_cases)
   have "length a > 0" using \<open>a\<noteq>[]\<close> by auto
   define n where "n = length a"
   define minus_x::"int list" where "minus_x = [0,0,1,-1,1]"
-  define minus_x_last::"int list" where "minus_x_last = [0,0,-1,1]"
   define plus_x::"int list" where "plus_x = [1,-1,0,0,-1]"
   define plus_x_last::"int list" where "plus_x_last = [1,-1,0,-1]"
+  define plus_minus::"int list" where "plus_minus = (if n-1\<in>I then plus_x else minus_x)"
+  define minus_plus::"int list" where "minus_plus = (if n-1\<in>I then minus_x else plus_x)"
   define x::"int vec" where 
-    "x = vec_of_list(concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [0..<n-1]) @ 
-      (if  n-1 \<in> I then plus_x_last else minus_x_last))"
-  have length_concat_map: "length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) 
+    "x = vec_of_list(concat (map (\<lambda>i. if i\<in>I then plus_minus else minus_plus) [0..<n-1])
+       @ plus_x_last)"
+  have length_plus_minus: "length plus_minus = 5" 
+    unfolding plus_minus_def plus_x_def minus_x_def by auto
+  have length_minus_plus: "length minus_plus = 5" 
+    unfolding minus_plus_def plus_x_def minus_x_def by auto
+  have length_concat_map: "length (concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) 
     [0..<b])) = b*5" for b 
-    unfolding plus_x_def minus_x_def by (induct b, auto)
+    using length_plus_minus length_minus_plus by (induct b, auto)
   have dimx_eq_5dima:"dim_vec x = length a * 5 - 1" 
-  proof -
-    have **: "length (if n - 1 \<in> I then plus_x_last else minus_x_last) = 4"
-      unfolding plus_x_last_def minus_x_last_def by auto
-    show ?thesis unfolding x_def dim_vec_of_list length_append length_concat_map ** 
-      using \<open>length a > 0\<close> unfolding n_def[symmetric] by auto
-  qed
+  unfolding x_def dim_vec_of_list length_append length_concat_map plus_x_last_def 
+    using \<open>length a > 0\<close> unfolding n_def[symmetric] by auto
   have "0 < dim_vec x" unfolding dimx_eq_5dima using \<open>length a > 0\<close> by linarith
   define M where "M = 2*(\<Sum>i<length a. \<bar>a!i\<bar>)+1"
 
 (*lemmas for proof*)
   have x_nth: 
-    "x $ (i*5+j) = (if i\<in>I then plus_x ! j else minus_x ! j)" if "i<n-1" "j<5" for i j 
+    "x $ (i*5+j) = (if i\<in>I then plus_minus ! j else minus_plus ! j)" if "i<n-1" "j<5" for i j 
   proof -
-    have lt: "i * 5 + j < length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n - 1]))"
+    have lt: "i * 5 + j < length (concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) 
+      [0..<n - 1]))"
       using that length_concat_map by auto
-    have len_rew: "i*5 = length (concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i]))"
+    have len_rew: "i*5 = length (concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) 
+      [0..<i]))"
     proof -
-      have if_rew: "(\<lambda>i. if i\<in>I then plus_x else minus_x) = 
-        (\<lambda>i. [(if i\<in>I then plus_x!0 else minus_x!0), (if i\<in>I then plus_x!1 else minus_x!1),
-              (if i\<in>I then plus_x!2 else minus_x!2), (if i\<in>I then plus_x!3 else minus_x!3),
-              (if i\<in>I then plus_x!4 else minus_x!4)])"
-       unfolding plus_x_def minus_x_def by auto
+      have if_rew: "(\<lambda>i. if i\<in>I then plus_minus else minus_plus) = 
+        (\<lambda>i. [(if i\<in>I then plus_minus!0 else minus_plus!0), 
+              (if i\<in>I then plus_minus!1 else minus_plus!1),
+              (if i\<in>I then plus_minus!2 else minus_plus!2), 
+              (if i\<in>I then plus_minus!3 else minus_plus!3),
+              (if i\<in>I then plus_minus!4 else minus_plus!4)])"
+       unfolding plus_minus_def minus_plus_def plus_x_def minus_x_def by auto
       then show ?thesis
-      unfolding if_rew length_concat_map_5[of "(\<lambda>i. if i\<in>I then plus_x!0 else minus_x!0)"
-        "(\<lambda>i. if i\<in>I then plus_x!1 else minus_x!1)" "(\<lambda>i. if i\<in>I then plus_x!2 else minus_x!2)"
-        "(\<lambda>i. if i\<in>I then plus_x!3 else minus_x!3)" "(\<lambda>i. if i\<in>I then plus_x!4 else minus_x!4)"
+      unfolding if_rew length_concat_map_5[of 
+        "(\<lambda>i. if i\<in>I then plus_minus!0 else minus_plus!0)"
+        "(\<lambda>i. if i\<in>I then plus_minus!1 else minus_plus!1)" 
+        "(\<lambda>i. if i\<in>I then plus_minus!2 else minus_plus!2)"
+        "(\<lambda>i. if i\<in>I then plus_minus!3 else minus_plus!3)" 
+        "(\<lambda>i. if i\<in>I then plus_minus!4 else minus_plus!4)"
         "[0..<i]"] by auto
     qed
-    have map_rew: "map f [0..<n-1] = map f [0..<i] @ map f [i..<n-1]" for f ::"nat \<Rightarrow> int list"
+    have map_rew: "map f [0..<n-1] = map f [0..<i] @ map f [i..<n-1]" 
+      for f ::"nat \<Rightarrow> int list"
       using that(1) by (metis append_Nil map_append not_gr_zero upt_0 upt_append)
-    have "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n-1]) ! (i * 5 + j) =
-          concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [i..<n-1]) ! j"
+    have "concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) [0..<n-1]) ! (i * 5 + j) =
+          concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) [i..<n-1]) ! j"
      by (subst map_rew, subst concat_append, subst len_rew)
         (subst nth_append_length_plus[of 
-          "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<i])"], simp)
-    also have "\<dots> = (if i \<in> I then plus_x!j else minus_x!j)"
+          "concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) [0..<i])"], simp)
+    also have "\<dots> = (if i \<in> I then plus_minus!j else minus_plus!j)"
     proof -
       have concat_rewr: "concat (map f [i..<n-1])=
        (f i) @ (concat (map f [i+1..<n-1]))" for f::"nat \<Rightarrow> int list"
        using that(1) upt_conv_Cons by force
-      have length_if: "length (if i \<in> I then plus_x else minus_x) = 5" 
-        unfolding plus_x_def minus_x_def by auto
+      have length_if: "length (if i \<in> I then plus_minus else minus_plus) = 5" 
+        using length_plus_minus length_minus_plus by auto
       show ?thesis unfolding concat_rewr nth_append length_if using \<open>j<5\<close> by auto
     qed
     finally show ?thesis unfolding x_def by (subst vec_index_vec_of_list) 
@@ -539,24 +548,24 @@ proof (safe, goal_cases)
   qed
 
   have x_nth0:
-    "x $ (i*5) = (if i\<in>I then plus_x ! 0 else minus_x ! 0)" if "i<n-1" for i 
+    "x $ (i*5) = (if i\<in>I then plus_minus ! 0 else minus_plus ! 0)" if "i<n-1" for i 
     using that by (subst x_nth[of i 0,symmetric], auto)
   
   have x_nth_last:
-    "x $ ((length a -1)*5+j) = (if length a-1\<in>I then plus_x_last ! j else minus_x_last ! j)" 
+    "x $ ((length a -1)*5+j) = plus_x_last ! j" 
     if "j<4" for j 
   using that unfolding  x_def vec_of_list_index using nth_append_length_plus[of 
-    "concat (map (\<lambda>i. if i \<in> I then plus_x else minus_x) [0..<n - 1])"
-    "(if n - 1 \<in> I then plus_x_last else minus_x_last)" j] unfolding length_concat_map n_def
+    "concat (map (\<lambda>i. if i \<in> I then plus_minus else minus_plus) [0..<n - 1])"
+    "plus_x_last" j] unfolding length_concat_map n_def
   by auto
 
   have x_nth0_last:
-    "x $ ((length a-1) *5) = (if length a - 1\<in>I then plus_x_last ! 0 else minus_x_last ! 0)" 
+    "x $ ((length a-1) *5) = plus_x_last ! 0" 
   by (subst x_nth_last[of 0,symmetric], auto)
 
-  have gen_bhle_in_I:
+  have gen_bhle_in_I_plus:
     "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) = 
-     (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" if "i\<in>I-{length a-1}" for i
+     (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" if "i\<in>I-{length a-1}" "n-1\<in>I" for i
   proof -
     have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
             (gen_bhle a) $ (i*5) * x $ (i*5) +
@@ -574,15 +583,15 @@ proof (safe, goal_cases)
     apply (subst gen_bhle_4[of i a], fastforce)
     apply (subst x_nth[of i], fastforce, fastforce)+
     apply (subst x_nth0[of i], fastforce)
-    apply (unfold M_def plus_x_def)
+    apply (unfold M_def plus_minus_def minus_plus_def plus_x_def minus_x_def)
     apply (simp add: eval_nat_numeral) 
     done
     finally show ?thesis by auto
   qed
 
-  have gen_bhle_not_in_I:
+  have gen_bhle_in_I_minus:
     "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
-     (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" if  "i\<in>{0..<n}-I-{n-1}" for i
+     (b3 (i+1) M) - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" if "i\<in>I-{length a-1}" "n-1\<notin>I" for i
   proof -
     have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
             (gen_bhle a) $ (i*5) * x $ (i*5) +
@@ -591,7 +600,7 @@ proof (safe, goal_cases)
             (gen_bhle a) $ (i*5+3) * x $ (i*5+3) +
             (gen_bhle a) $ (i*5+4) * x $ (i*5+4)"
       by (simp add: eval_nat_numeral)
-    also have "\<dots> = (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" 
+    also have "\<dots> = (b3 (i+1) M) - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" 
     using that 1 n_def \<open>length a > 0\<close>
     apply (subst gen_bhle_0[of i a], fastforce)
     apply (subst gen_bhle_1[of i a], fastforce)
@@ -600,7 +609,59 @@ proof (safe, goal_cases)
     apply (subst gen_bhle_4[of i a], fastforce)
     apply (subst x_nth[of i], fastforce, fastforce)+
     apply (subst x_nth0[of i], fastforce)
-    apply (unfold M_def minus_x_def)
+    apply (unfold M_def plus_minus_def minus_x_def)
+    apply (simp add: eval_nat_numeral) 
+    done
+    finally show ?thesis by auto
+  qed
+
+  have gen_bhle_not_in_I_plus:
+    "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+     (b3 (i+1) M) - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" if "i\<in>{0..<n}-I-{n-1}" "n-1\<in>I" for i
+  proof -
+    have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+            (gen_bhle a) $ (i*5) * x $ (i*5) +
+            (gen_bhle a) $ (i*5+1) * x $ (i*5+1) +
+            (gen_bhle a) $ (i*5+2) * x $ (i*5+2) +
+            (gen_bhle a) $ (i*5+3) * x $ (i*5+3) +
+            (gen_bhle a) $ (i*5+4) * x $ (i*5+4)"
+      by (simp add: eval_nat_numeral)
+    also have "\<dots> = (b3 (i+1) M) - (b4 (i+1) M (a!i)) + (b5 (i+1) M)" 
+    using that 1 n_def \<open>length a > 0\<close>
+    apply (subst gen_bhle_0[of i a], fastforce)
+    apply (subst gen_bhle_1[of i a], fastforce)
+    apply (subst gen_bhle_2[of i a], fastforce)
+    apply (subst gen_bhle_3[of i a], fastforce)
+    apply (subst gen_bhle_4[of i a], fastforce)
+    apply (subst x_nth[of i], fastforce, fastforce)+
+    apply (subst x_nth0[of i], fastforce)
+    apply (unfold M_def minus_plus_def minus_x_def)
+    apply (simp add: eval_nat_numeral) 
+    done
+    finally show ?thesis by auto
+  qed
+
+  have gen_bhle_not_in_I_minus:
+    "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) = 
+     (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" if "i\<in>{0..<n}-I-{n-1}" "n-1\<notin>I" for i
+  proof -
+    have "(\<Sum>j=0..<5. (gen_bhle a) $ (i*5+j) * x $ (i*5+j)) =
+            (gen_bhle a) $ (i*5) * x $ (i*5) +
+            (gen_bhle a) $ (i*5+1) * x $ (i*5+1) +
+            (gen_bhle a) $ (i*5+2) * x $ (i*5+2) +
+            (gen_bhle a) $ (i*5+3) * x $ (i*5+3) +
+            (gen_bhle a) $ (i*5+4) * x $ (i*5+4)"
+      by (simp add: eval_nat_numeral)
+    also have "\<dots> = (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)" 
+    using that 1 n_def \<open>length a > 0\<close>
+    apply (subst gen_bhle_0[of i a], fastforce)
+    apply (subst gen_bhle_1[of i a], fastforce)
+    apply (subst gen_bhle_2[of i a], fastforce)
+    apply (subst gen_bhle_3[of i a], fastforce)
+    apply (subst gen_bhle_4[of i a], fastforce)
+    apply (subst x_nth[of i], fastforce, fastforce)+
+    apply (subst x_nth0[of i], fastforce)
+    apply (unfold M_def minus_plus_def plus_x_def)
     apply (simp add: eval_nat_numeral) 
     done
     finally show ?thesis by auto
@@ -608,8 +669,7 @@ proof (safe, goal_cases)
 
   have gen_bhle_last:
     "(\<Sum>j=0..<4. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j)) =
-     (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
-      else - (b4_last n M (a!(n-1))) + (b5 n M))"
+     (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)"
   proof -
     have "(\<Sum>j=0..<4. (gen_bhle a) $ ((n-1)*5+j) * x $ ((n-1)*5+j)) =
             (gen_bhle a) $ ((n-1)*5) * x $ ((n-1)*5) +
@@ -617,17 +677,15 @@ proof (safe, goal_cases)
             (gen_bhle a) $ ((n-1)*5+2) * x $ ((n-1)*5+2) +
             (gen_bhle a) $ ((n-1)*5+3) * x $ ((n-1)*5+3)"
       by (simp add: eval_nat_numeral)
-    also have "\<dots> = (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
-      else - (b4_last n M (a!(n-1))) + (b5 n M))" 
+    also have "\<dots> = (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)" 
     using 1 n_def \<open>length a > 0\<close> unfolding n_def
     apply (subst gen_bhle_last0[of a, OF \<open>length a > 0\<close>])
     apply (subst gen_bhle_last1[of a, OF \<open>length a > 0\<close>])
-
     apply (subst gen_bhle_last3[of a, OF \<open>length a > 0\<close>])
     apply (subst gen_bhle_last4[of a, OF \<open>length a > 0\<close>]) 
     apply (subst x_nth_last, simp)+
     apply (subst x_nth0_last, simp add: n_def)
-    apply (unfold M_def plus_x_def minus_x_def plus_x_last_def minus_x_last_def)
+    apply (unfold M_def plus_x_last_def)
     apply (auto simp add: eval_nat_numeral last_conv_nth) 
     done
     finally show ?thesis by auto
@@ -670,99 +728,170 @@ proof (safe, goal_cases)
         by (subst sum.union_disjoint[of "I - {n - 1}" "{0..<n} - I - {n - 1}", symmetric]) 
            (auto simp add: \<open>finite I\<close>)
     qed
-    also have "\<dots> = (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) 
-      + (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) 
-      + (if n-1\<in>I then (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M) 
-          else - (b4_last n M (a!(n-1))) + (b5 n M))"
-    proof -
-      have "(\<Sum>i\<in>I-{n-1}. f i) =
-            (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) "
-      unfolding f_def using gen_bhle_in_I by (simp add: n_def)
-      moreover have "(\<Sum>i\<in>{0..<n}-I-{n-1}. f i) =
-            (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) "
-      unfolding f_def using gen_bhle_not_in_I by (meson sum.cong)
-      ultimately show ?thesis unfolding f_def using gen_bhle_last by auto
-    qed
-    also have "\<dots> = (\<Sum>i\<in>I-{n-1}.  (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
-      + (\<Sum>i\<in>{0..<n}-I-{n-1}. - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
-      + (if n-1\<in>I then (a!(n-1)) + M * 5^(4*n-4) - M*1 
-          else -(a!(n-1)) - M * 5^(4*n-2) - M*1)"
-    proof -
-      have "b1 (i + 1) M (a ! i) - b2 (i + 1) M - b5 (i + 1) M =
-         (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>I-{n-1}" for i
-      unfolding b1_def b2_def b5_def
-      by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
-      moreover have "b3 (i + 1) M - b4 (i + 1) M (a ! i) + b5 (i + 1) M =
-        - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>{0..<n} - I - {n - 1}" for i
-      unfolding b3_def b4_def b5_def 
-      by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
-      moreover have "b1 n M (a ! (n - 1)) - b2_last n M - b5 n M =
-        (a!(n-1)) + M * 5^(4*n-4) - M"
-      unfolding b1_def b2_last_def b5_def by (simp add: distrib_left)
-      moreover have "- b4_last n M (a ! (n - 1)) + b5 n M = 
-        -(a!(n-1)) - M * 5^(4*n-2) - M"
-      unfolding b4_last_def b5_def by (simp add: distrib_left)
-      ultimately show ?thesis by auto
-    qed
-    also have "\<dots> = (\<Sum>i\<in>I-{n-1}.  (a!i)) + (\<Sum>i\<in>{0..<n}-I-{n-1}. - (a!i))
-      + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
-      + (if n-1\<in>I then (a!(n-1)) else -(a!(n-1)))
-      + (if n-1\<in>I then 0 else - M * 5^(4*n-2) - M * 5^(4*n-4))
-      + M * 5^(4*n-4) - M"
-    proof -
-      have sets1: "{0..<n - 1} \<inter> I = I - {n -1}" using "1"(1) n_def by auto
-      have sets2: "{0..<n - 1} - I = {0..<n}- I - {n-1}" using "1"(1) n_def by auto
-      have subs: "(\<Sum>i\<in>I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) +
-            (\<Sum>i\<in>{0..<n}-I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) =
-            (\<Sum>i = 0..<n-1. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" 
-      using sum.Int_Diff[of "{0..<n-1}" "(\<lambda>i. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" "I"]
-        \<open>finite I\<close> unfolding sets1 sets2  by auto
-      show ?thesis
-        apply (subst distrib_left)+ 
-        apply (subst sum.distrib)+ 
-        apply (subst sum_distrib_left) 
-        apply (subst right_diff_distrib)+ 
-        apply (subst subs[symmetric])
-        apply auto 
-        done
-    qed
-    also have "\<dots> = (\<Sum>i\<in>I. (a!i)) + (\<Sum>i\<in>{0..<n}-I. - (a!i))
-      + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
-      + (if n-1\<in>I then 0 else - M * 5^(4*n-2) - M * 5^(4*n-4))
-      + M * 5^(4*n-4) - M"
-    proof (auto split: if_splits, goal_cases inI notinI)
-      case inI
-      then show ?case  by (subst sum.Int_Diff[of "I" _ "{n-1}"], auto simp add: \<open>finite I\<close>)
-    next
-      case notinI
-      then have "n-1\<in>{0..<n}-I" using \<open>length a > 0\<close> n_def by auto
-      then show ?case by (subst sum.Int_Diff[of "{0..<n}-I" _ "{n-1}"], auto simp add: \<open>finite I\<close>)
-    qed
     also have "\<dots> = M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
-      + M * 5^(4*n-4) - M + (if n-1\<in>I then 0 else - M * 5^(4*n-2) - M * 5^(4*n-4))"
-      unfolding n_def using 1(2) by (subst sum_negf, auto)
-    also have "\<dots> = M * ((\<Sum>i\<in>{1..<n}. 5^(4*i-4) - 5^(4*i)) + 5^(4*n-4) - 1)
-      + (if n-1\<in>I then 0 else - M * 5^(4*n-2) - M * 5^(4*n-4))"
-    proof -
-      have sums: "(\<Sum>i = Suc 0..<Suc (n - 1). 5 ^ (4 * i - 4) - 5 ^ (4 * i)) =
-                  sum ((\<lambda>i. 5 ^ (4*(i+1) - 4) - 5 ^ (4*(i+1)))) {0..<n - 1}"
-      using sum.atLeast_Suc_lessThan_Suc_shift[of "(\<lambda>i. 5^(4*i-4) - 5^(4*i))" 0 "n-1"] 
-      unfolding comp_def by auto
-      show ?thesis
-      by (subst distrib_left[symmetric], subst right_diff_distrib, subst mult_1_right)
-         (subst sums[symmetric], use \<open>0 < length a\<close> n_def in \<open>force\<close>)
+        + M * 5^(4*n-4) - M"
+    proof (cases "n-1\<in>I")
+      case True
+      have "sum f (I - {n - 1}) + sum f ({0..<n} - I - {n - 1}) +
+        (\<Sum>j = 0..<4. gen_bhle a $ ((n - 1) * 5 + j) * x $ ((n - 1) * 5 + j)) = 
+        (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) 
+        + (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) 
+        + (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)"
+      proof -
+        have "(\<Sum>i\<in>I-{n-1}. f i) =
+              (\<Sum>i\<in>I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) "
+        unfolding f_def using gen_bhle_in_I_plus[OF _ True] by (simp add: n_def)
+        moreover have "(\<Sum>i\<in>{0..<n}-I-{n-1}. f i) =
+              (\<Sum>i\<in>{0..<n}-I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) "
+        unfolding f_def using gen_bhle_not_in_I_plus[OF _ True] by (meson sum.cong)
+        ultimately show ?thesis unfolding f_def using gen_bhle_last by auto
+      qed
+      also have "\<dots> = (\<Sum>i\<in>I-{n-1}.  (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
+        + (\<Sum>i\<in>{0..<n}-I-{n-1}. - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
+        + (a!(n-1)) + M * 5^(4*n-4) - M*1"
+      proof -
+        have "b1 (i + 1) M (a ! i) - b2 (i + 1) M - b5 (i + 1) M =
+           (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>I-{n-1}" for i
+        unfolding b1_def b2_def b5_def
+        by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
+        moreover have "b3 (i + 1) M - b4 (i + 1) M (a ! i) + b5 (i + 1) M =
+          - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>{0..<n} - I - {n - 1}" for i
+        unfolding b3_def b4_def b5_def 
+        by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
+        moreover have "b1 n M (a ! (n - 1)) - b2_last n M - b5 n M =
+          (a!(n-1)) + M * 5^(4*n-4) - M"
+        unfolding b1_def b2_last_def b5_def by (simp add: distrib_left)
+        moreover have "- b4_last n M (a ! (n - 1)) + b5 n M = 
+          -(a!(n-1)) - M * 5^(4*n-2) - M"
+        unfolding b4_last_def b5_def by (simp add: distrib_left)
+        ultimately show ?thesis by auto
+      qed
+      also have "\<dots> = (\<Sum>i\<in>I-{n-1}.  (a!i)) + (\<Sum>i\<in>{0..<n}-I-{n-1}. - (a!i))
+        + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + (a!(n-1)) + M * 5^(4*n-4) - M"
+      proof -
+        have sets1: "{0..<n - 1} \<inter> I = I - {n -1}" using "1"(1) n_def by auto
+        have sets2: "{0..<n - 1} - I = {0..<n}- I - {n-1}" using "1"(1) n_def by auto
+        have subs: "(\<Sum>i\<in>I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) +
+              (\<Sum>i\<in>{0..<n}-I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) =
+              (\<Sum>i = 0..<n-1. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" 
+        using sum.Int_Diff[of "{0..<n-1}" "(\<lambda>i. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" "I"]
+          \<open>finite I\<close> unfolding sets1 sets2  by auto
+        show ?thesis
+          apply (subst distrib_left)+ 
+          apply (subst sum.distrib)+ 
+          apply (subst sum_distrib_left) 
+          apply (subst right_diff_distrib)+ 
+          apply (subst subs[symmetric])
+          apply auto 
+          done
+      qed
+      also have "\<dots> = (\<Sum>i\<in>I. (a!i)) + (\<Sum>i\<in>{0..<n}-I. - (a!i))
+        + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + M * 5^(4*n-4) - M" 
+      proof -
+        have *: "a ! (n-1) = sum ((!) a) (I \<inter> {n-1})" using True by auto
+        have "sum ((!) a) (I - {n-1}) + a ! (n-1) = sum ((!) a) I"
+        by (subst sum.Int_Diff[of "I" _ "{n-1}"], unfold *, auto simp add: \<open>finite I\<close>)
+        then show ?thesis using True by auto 
+      qed
+      also have "\<dots> = M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + M * 5^(4*n-4) - M "
+        unfolding n_def using 1(2) by (subst sum_negf, auto)
+      finally show ?thesis by auto
+    (* Case n-1\<notin>I*)
+    next
+    case False
+      have "sum f (I - {n - 1}) + sum f ({0..<n} - I - {n - 1}) +
+        (\<Sum>j = 0..<4. gen_bhle a $ ((n - 1) * 5 + j) * x $ ((n - 1) * 5 + j)) = 
+        (\<Sum>i\<in>{0..<n}-I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) 
+        + (\<Sum>i\<in>I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) 
+        + (b1 n M (a!(n-1))) - (b2_last n M) - (b5 n M)"
+      proof -
+        have "(\<Sum>i\<in>{0..<n}-I-{n-1}. f i) =
+              (\<Sum>i\<in>{0..<n}-I-{n-1}. (b1 (i+1) M (a!i)) - (b2 (i+1) M) - (b5 (i+1) M)) "
+        unfolding f_def using gen_bhle_not_in_I_minus[OF _ False] by (simp add: n_def)
+        moreover have "(\<Sum>i\<in>I-{n-1}. f i) =
+              (\<Sum>i\<in>I-{n-1}. (b3 (i+1) M)  - (b4 (i+1) M (a!i)) + (b5 (i+1) M)) "
+        unfolding f_def using gen_bhle_in_I_minus[OF _ False] by (simp add: n_def)
+        ultimately show ?thesis unfolding f_def using gen_bhle_last by auto
+      qed
+      also have "\<dots> = (\<Sum>i\<in>{0..<n}-I-{n-1}.  (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
+        + (\<Sum>i\<in>I-{n-1}. - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))) 
+        + (a!(n-1)) + M * 5^(4*n-4) - M*1"
+      proof -
+        have "b1 (i + 1) M (a ! i) - b2 (i + 1) M - b5 (i + 1) M =
+           (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>{0..<n} - I - {n - 1}" for i
+        unfolding b1_def b2_def b5_def
+        by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
+        moreover have "b3 (i + 1) M - b4 (i + 1) M (a ! i) + b5 (i + 1) M =
+          - (a!i) + (M * 5^(4*(i+1)-4) - M * 5^(4*(i+1)))" if "i\<in>I-{n-1}" for i
+        unfolding b3_def b4_def b5_def 
+        by (smt (verit, best) add_uminus_conv_diff right_diff_distrib)
+        moreover have "b1 n M (a ! (n - 1)) - b2_last n M - b5 n M =
+          (a!(n-1)) + M * 5^(4*n-4) - M"
+        unfolding b1_def b2_last_def b5_def by (simp add: distrib_left)
+        moreover have "- b4_last n M (a ! (n - 1)) + b5 n M = 
+          -(a!(n-1)) - M * 5^(4*n-2) - M"
+        unfolding b4_last_def b5_def by (simp add: distrib_left)
+        ultimately show ?thesis by auto
+      qed
+      also have "\<dots> = (\<Sum>i\<in>{0..<n}-I-{n-1}.  (a!i)) + (\<Sum>i\<in>I-{n-1}. - (a!i))
+        + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + (a!(n-1)) + M * 5^(4*n-4) - M"
+      proof -
+        have sets1: "{0..<n - 1} \<inter> I = I - {n -1}" using "1"(1) n_def by auto
+        have sets2: "{0..<n - 1} - I = {0..<n}- I - {n-1}" using "1"(1) n_def by auto
+        have subs: "(\<Sum>i\<in>{0..<n}-I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) +
+              (\<Sum>i\<in>I-{n-1}. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1)) =
+              (\<Sum>i = 0..<n-1. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" 
+        using sum.Int_Diff[of "{0..<n-1}" "(\<lambda>i. M * 5^(4*i+4*1-4) - M * 5^(4*i+4*1))" "I"]
+          \<open>finite I\<close> unfolding sets1 sets2  by auto
+        show ?thesis
+          apply (subst distrib_left)+ 
+          apply (subst sum.distrib)+ 
+          apply (subst sum_distrib_left) 
+          apply (subst right_diff_distrib)+ 
+          apply (subst subs[symmetric])
+          apply auto 
+          done
+      qed
+      also have "\<dots> = (\<Sum>i\<in>{0..<n}-I. (a!i)) + (\<Sum>i\<in>I. - (a!i))
+        + M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + M * 5^(4*n-4) - M" 
+      proof -
+        have *: "({0..<n}-I) \<inter> {n-1} = {n-1}" using False n_def \<open>length a > 0\<close> by auto
+        then have **: "a ! (n-1) = sum ((!) a) (({0..<n}-I) \<inter> {n-1})" using False by auto
+        have "sum ((!) a) (({0..<n}-I) - {n-1}) + a ! (n-1) = sum ((!) a) ({0..<n}-I)"
+        by (subst sum.Int_Diff[of "{0..<n}-I" _ "{n-1}"], unfold * **, auto simp add: \<open>finite I\<close>)
+        then show ?thesis using False by auto 
+      qed
+      also have "\<dots> = M * (\<Sum>i\<in>{0..<n-1}. 5^(4*(i+1)-4) - 5^(4*(i+1)))
+        + M * 5^(4*n-4) - M "
+        unfolding n_def using 1(2) by (subst sum_negf, auto)
+      finally show ?thesis by auto
     qed
-    also have "\<dots> = M * (((\<Sum>i\<in>{1..<n}. 5^(4*i-4)) + 5^(4*n-4)) - ((\<Sum>i\<in>{1..<n}. 5^(4*i)) + 1))"
-      using sum.distrib[of "(\<lambda>i. 5^(4*i-4))" "(\<lambda>i. (-1) * 5^(4*i))" "{1..<n}"] 
-      by (simp add: sum_subtractf)
-    also have "\<dots> = M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))"
-      using sum.atLeastLessThan_Suc[of 1 n "(\<lambda>i. 5^(4*i-4))"]
-            sum.atLeast_Suc_lessThan[of 0 n "(\<lambda>i. 5^(4*i))"]
-      by (smt (verit, best) One_nat_def Suc_eq_plus1 Suc_leI \<open>0 < length a\<close> mult_eq_0_iff 
-        n_def power_0)
-    also have "\<dots> = M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))"
-      using sum.atLeast_Suc_lessThan_Suc_shift[of "(\<lambda>i. 5^(4*i-4))" 0 n] by auto
-    also have "\<dots> = 0" by auto
+      also have "\<dots> = M * ((\<Sum>i\<in>{1..<n}. 5^(4*i-4) - 5^(4*i)) + 5^(4*n-4) - 1)"
+      proof -
+        have sums: "(\<Sum>i = Suc 0..<Suc (n - 1). 5 ^ (4 * i - 4) - 5 ^ (4 * i)) =
+                    sum ((\<lambda>i. 5 ^ (4*(i+1) - 4) - 5 ^ (4*(i+1)))) {0..<n - 1}"
+        using sum.atLeast_Suc_lessThan_Suc_shift[of "(\<lambda>i. 5^(4*i-4) - 5^(4*i))" 0 "n-1"] 
+        unfolding comp_def by auto
+        show ?thesis
+        by (subst distrib_left[symmetric], subst right_diff_distrib, subst mult_1_right)
+           (subst sums[symmetric], use \<open>0 < length a\<close> n_def in \<open>force\<close>)
+      qed
+      also have "\<dots> = M * (((\<Sum>i\<in>{1..<n}. 5^(4*i-4)) + 5^(4*n-4)) - ((\<Sum>i\<in>{1..<n}. 5^(4*i)) + 1))"
+        using sum.distrib[of "(\<lambda>i. 5^(4*i-4))" "(\<lambda>i. (-1) * 5^(4*i))" "{1..<n}"] 
+        by (simp add: sum_subtractf)
+      also have "\<dots> = M * ((\<Sum>i\<in>{1..<n+1}. 5^(4*i-4)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))"
+        using sum.atLeastLessThan_Suc[of 1 n "(\<lambda>i. 5^(4*i-4))"]
+              sum.atLeast_Suc_lessThan[of 0 n "(\<lambda>i. 5^(4*i))"]
+        by (smt (verit, best) One_nat_def Suc_eq_plus1 Suc_leI \<open>0 < length a\<close> mult_eq_0_iff 
+          n_def power_0)
+      also have "\<dots> = M * ((\<Sum>i\<in>{0..<n}. 5^(4*i)) - (\<Sum>i\<in>{0..<n}. 5^(4*i)))"
+        using sum.atLeast_Suc_lessThan_Suc_shift[of "(\<lambda>i. 5^(4*i-4))" 0 n] by auto
+      also have "\<dots> = 0" by auto
     finally show ?thesis by blast
   qed
 
@@ -772,37 +901,43 @@ proof (safe, goal_cases)
   proof (rule ccontr)
     assume "\<not> x \<noteq> 0\<^sub>v (dim_vec x)"
     then have "x = 0\<^sub>v (dim_vec x)" by auto
-    have "dim_vec x > 4" using \<open>0 < length a\<close> dimx_eq_5dima by linarith
-    have "x $ 4 = 0" using \<open>dim_vec x > 4\<close>
-      by (subst \<open>x=0\<^sub>v (dim_vec x)\<close>) (subst index_zero_vec[of 4], auto)
-    moreover have "x $ 4 \<noteq> 0" 
-    proof (cases "0\<in>I")
-      case True
-      then have rewr: "x = vec_of_list (plus_x @ 
-        concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [1..<n]))" unfolding x_def 
-        using \<open>0 < length a\<close> n_def upt_conv_Cons by auto
-      then show ?thesis by (subst rewr, unfold plus_x_def, simp add: numeral_Bit0)
-    next
-      case False
-      then have rewr: "x = vec_of_list (minus_x @ 
-        concat (map (\<lambda>i. if i\<in>I then plus_x else minus_x) [1..<n]))" unfolding x_def 
-        using \<open>0 < length a\<close> n_def upt_conv_Cons by auto
-      then show ?thesis by (subst rewr) (unfold minus_x_def, simp add: numeral_Bit0)
+    have "dim_vec x > 3" using \<open>0 < length a\<close> dimx_eq_5dima by linarith
+    have "(n - Suc 0) * 5 + 3 < dim_vec x" 
+      unfolding dimx_eq_5dima n_def using \<open>length a > 0\<close> by linarith
+    then have "x $ ((n-1)*5 + 3) = 0" using \<open>dim_vec x > 3\<close> 
+      by (subst \<open>x=0\<^sub>v (dim_vec x)\<close>, subst index_zero_vec(1)[of "(n-1)*5+3"], auto)
+    moreover have "x $ ((n-1)*5+3) \<noteq> 0"
+    proof -
+      have "\<not> ((n - 1) * 5 + 3 < (n - 1) * 5)" by auto
+      then show ?thesis unfolding x_def vec_of_list_index nth_append length_concat_map 
+      plus_x_last_def by auto
     qed
     ultimately show False by auto
   qed
   moreover have "\<parallel>x\<parallel>\<^sub>\<infinity> \<le> 1"
   proof -
-    let ?x_list = "(concat (map (\<lambda>i. if i \<in> I then ([1, - 1, 0, 0, - 1]::int list)
-      else ([0, 0, 1, - 1, 1]::int list)) [0..<n]))"
-    have set: "set (?x_list) = {-1,0,1::int}" 
-      using \<open>length a > 0\<close> 1 unfolding n_def 
+    let ?x_list = "(concat (map (\<lambda>i. if i \<in> I then plus_minus
+      else minus_plus) [0..<n-1]))"
+    have set: "set (?x_list) \<subseteq> {-1,0,1::int}" 
+      using \<open>length a > 0\<close> 1 unfolding n_def plus_minus_def minus_plus_def 
+      plus_x_def minus_x_def
       by (subst set_concat, subst set_map)(auto simp add: atLeast0LessThan)
     have "?x_list ! i \<in> {-1,0,1::int}" if "i< length ?x_list" for i
-      using nth_mem[OF that] by (subst set[symmetric], auto)
-    then have "x$i\<in>{-1,0,1::int}" if "i<dim_vec x" for i 
-      using that unfolding x_def plus_x_def minus_x_def
-      by (smt (z3) dim_vec_of_list vec_of_list_index)
+      using nth_mem[OF that] set by auto
+    then have *:"?x_list ! i \<in> {-1,0,1::int}" if "i< (n - 1) * 5" for i using that 
+      unfolding length_concat_map by auto
+    have **: "plus_x_last ! (i - (n - 1) * 5)\<in>{-1,0,1::int}"
+      if "\<not> (i<(n-1)*5)" "i<dim_vec x" for i 
+    proof -
+      have "(i - (n - 1) * 5)<4" using that \<open>length a > 0\<close> 
+        unfolding dimx_eq_5dima n_def by auto
+      then show ?thesis unfolding plus_x_last_def
+      by (smt (z3) add.assoc add_diff_cancel_right' diff_is_0_eq insertCI less_Suc_eq not_le 
+      not_less_iff_gr_or_eq nth_Cons' numeral_1_eq_Suc_0 numeral_Bit0 plus_1_eq_Suc)
+    qed
+    have "x$i\<in>{-1,0,1::int}" if "i<dim_vec x" for i 
+      using that * ** unfolding x_def vec_of_list_index nth_append length_concat_map 
+        plus_x_last_def by auto
     then have "\<bar>x$i\<bar>\<le>1" if "i<dim_vec x" for i using that by fastforce
     then show ?thesis unfolding linf_norm_vec_Max 
       by (subst Max_le_iff, auto simp add: exI[of "(\<lambda>i. dim_vec x > i)" 0] \<open>dim_vec x > 0\<close>)
