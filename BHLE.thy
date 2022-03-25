@@ -37,18 +37,11 @@ definition b4_last :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int
 definition b5 :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b5 i M = M * (5^(4*i-1))"
 
-(*
-fun rec_bhle where
-  "rec_bhle i M [] = []" |
-  "rec_bhle i M (a # []) = [[b1 i M a, b2_last i M, b3 i M, b4_last i M a, b5 i M]]" |
-  "rec_bhle i M (a # as) = [b1 i M a, b2 i M, b3 i M, b4 i M a, b5 i M] # (rec_bhle (i+1) M as)"
-
-definition gen_bhle :: "int list \<Rightarrow> int vec" where
-  "gen_bhle as = vec_of_list (concat (rec_bhle 1 (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) as))"
-*)
+text \<open>Change order of values in paper such that 3 is in last place and can be omitted 
+    in the last entry.\<close>
 
 definition b_list :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
-  "b_list as i M = [b1 (i+1) M (as!i), b2 (i+1) M, b3 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M]"
+  "b_list as i M = [b1 (i+1) M (as!i), b2 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M, b3 (i+1) M]"
 
 (* omit the 3rd entry in the last list. This ensures that the weight of the solution is 1 or -1,
 essential for the proof of NP-hardnes*)
@@ -61,13 +54,6 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
   (map (\<lambda>i. b_list as i M) [0..<n-1]) 
   @ (if n>0 then b_list_last as n M else [])))"
 
-(*
-try this out
-value "(2*(\<Sum>i<length [1,2::nat]. \<bar>[1,2::nat]!i\<bar>)+1)"
-value "b1 1 7 1"
-value "b4_last 2 7 2"
-value "rec_bhle 1 7 [1,2::nat]"
-*)
 
 definition reduce_bhle_partition:: "(int list) \<Rightarrow> ((int vec) * int)" where
   "reduce_bhle_partition \<equiv> (\<lambda> a. (gen_bhle a, 1))"
@@ -96,9 +82,9 @@ next
        (use length_concat_map_5[of 
       "(\<lambda>i. b1 (i + 1) M ((x#xs) ! i))"  
       "(\<lambda>i. b2 (i + 1) M             )"
-      "(\<lambda>i. b3 (i + 1) M             )"
       "(\<lambda>i. b4 (i + 1) M ((x#xs) ! i))"
-      "(\<lambda>i. b5 (i + 1) M             )"] in \<open>simp\<close>)
+      "(\<lambda>i. b5 (i + 1) M             )"
+      "(\<lambda>i. b3 (i + 1) M             )"] in \<open>simp\<close>)
 qed
 
 lemma dim_vec_gen_bhle_empty:
@@ -270,10 +256,28 @@ next
      (subst b_list_nth[OF assms, of 1 M], auto split: if_splits, simp add: b_list_def)
 qed
 
+lemma gen_bhle_4:
+  assumes "i<length as-1"
+  shows "(gen_bhle as) $ (i * 5 + 4) = 
+    b3 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
+proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
+  goal_cases)
+  case 1
+  then show ?case using assms
+    by (subst dim_vec_of_list)+ (split if_split, 
+      subst length_b_list_last, subst length_concat_map_b_list, auto) 
+next
+  case 2
+  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
+  then show ?case unfolding M_def[symmetric] using assms
+  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
+     (subst b_list_nth[OF assms, of 4 M], auto split: if_splits, simp add: b_list_def)
+qed
+
 lemma gen_bhle_2:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 2) = 
-    b3 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
+    b4 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (as!i)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
   case 1
@@ -291,24 +295,6 @@ qed
 lemma gen_bhle_3:
   assumes "i<length as-1"
   shows "(gen_bhle as) $ (i * 5 + 3) = 
-    b4 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1) (as!i)"
-proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
-  goal_cases)
-  case 1
-  then show ?case using assms
-    by (subst dim_vec_of_list)+ (split if_split, 
-      subst length_b_list_last, subst length_concat_map_b_list, auto) 
-next
-  case 2
-  define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
-  then show ?case unfolding M_def[symmetric] using assms
-  by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
-     (subst b_list_nth[OF assms, of 3 M], auto split: if_splits, simp add: b_list_def)
-qed
-
-lemma gen_bhle_4:
-  assumes "i<length as-1"
-  shows "(gen_bhle as) $ (i * 5 + 4) = 
     b5 (i+1) (2*(\<Sum>i<length as. \<bar>as!i\<bar>)+1)"
 proof (unfold gen_bhle_def Let_def, subst vec_of_list_append, subst index_append_vec(1), 
   goal_cases)
@@ -321,7 +307,7 @@ next
   define M where "M = (2 * (\<Sum>i<length as. \<bar>as ! i\<bar>) + 1)"
   then show ?case unfolding M_def[symmetric] using assms
   by (subst dim_vec_of_list, subst length_concat_map_b_list, subst vec_index_vec_of_list)+  
-     (subst b_list_nth[OF assms, of 4 M], auto split: if_splits, simp add: b_list_def)
+     (subst b_list_nth[OF assms, of 3 M], auto split: if_splits, simp add: b_list_def)
 qed
 
 
@@ -479,8 +465,8 @@ proof (safe, goal_cases)
   have "finite I" using 1 by (meson subset_eq_atLeast0_lessThan_finite)
   have "length a > 0" using \<open>a\<noteq>[]\<close> by auto
   define n where "n = length a"
-  define minus_x::"int list" where "minus_x = [0,0,1,-1,1]"
-  define plus_x::"int list" where "plus_x = [1,-1,0,0,-1]"
+  define minus_x::"int list" where "minus_x = [0,0,-1,1,1]"
+  define plus_x::"int list" where "plus_x = [1,-1,0,-1,0]"
   define plus_x_last::"int list" where "plus_x_last = [1,-1,0,-1]"
   define plus_minus::"int list" where "plus_minus = (if n-1\<in>I then plus_x else minus_x)"
   define minus_plus::"int list" where "minus_plus = (if n-1\<in>I then minus_x else plus_x)"
@@ -1018,7 +1004,7 @@ using assms
 by (metis atLeastLessThan_iff diff_diff_left le_Suc_ex zero_less_diff)
 
 
-(*NP-hardnedd*)
+(*NP-hardness*)
 
 
 lemma NP_hardness_reduction_subset_sum:
