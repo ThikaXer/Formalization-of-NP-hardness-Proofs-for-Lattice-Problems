@@ -1598,8 +1598,8 @@ proof (safe, goal_cases)
       qed (unfold w_def, auto)
     qed
 
-    have "\<bar>w\<bar> \<le> 1"  using xi_le_1[of "(n-1)*5"] \<open>length a > 0\<close>
-      unfolding w_def dim_vec_x_5n n_def by auto
+    have "\<bar>w\<bar> \<le> 1"  using xi_le_1[of "(n-1)*5"] \<open>n > 0\<close>
+      unfolding w_def dim_vec_x_5n by auto
 
     moreover have "w\<noteq>0"
     proof (rule ccontr)
@@ -1656,7 +1656,14 @@ proof (safe, goal_cases)
       qed
 
       moreover have p_two: "x$(i*5+2) = 0" if "i<n"  for i
-        using p_four[OF that] eq_4' that apply (cases "i<n-1") apply auto sorry
+      proof (cases "i<n-1")
+        case True
+        then show ?thesis using p_four[OF \<open>i<n-1\<close>] eq_4' by auto
+      next
+        case False
+        then have "i=n-1" using that by auto
+        show ?thesis using eq_4[of "n-1"] unfolding \<open>i=n-1\<close> using \<open>n>0\<close> by auto
+      qed
       then have "x$j = 0" if "j<5*n" "j mod 5 = 2" for j
       proof -
         obtain i where "i*5+2 = j" "i<n" using \<open>j<5*n\<close> \<open>j mod 5 = 2\<close> 
@@ -1664,7 +1671,8 @@ proof (safe, goal_cases)
         then show ?thesis unfolding \<open>i*5+2 = j\<close>[symmetric] using p_two[OF \<open>i<n\<close>] by auto
       qed
 
-      moreover have p_three: "x$(i*5+3) = 0" if "i<n"  for i sorry
+      moreover have p_three: "x$(i*5+3) = 0" if "i<n"  for i 
+        using eq_5[of i] that p_two[OF that] p_zero[OF that] by auto
       then have "x$j = 0" if "j<5*n" "j mod 5 = 3" for j
       proof -
         obtain i where "i*5+3 = j" "i<n" using \<open>j<5*n\<close> \<open>j mod 5 = 3\<close> 
@@ -1677,201 +1685,192 @@ proof (safe, goal_cases)
       then show False using 1(4) by auto
     qed
 
-    ultimately have "w=1 \<or> w = -1" by auto
-    then consider (pos) "w=1" | (neg) "w=-1" by blast
-    then show ?thesis
-    proof cases
-      case pos
-      then show ?thesis sorry
-    next
-      case neg
-      then show ?thesis sorry
-    qed
-  qed
-  ultimately show ?case by auto
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-    have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i 
-      using 1(5) that unfolding linf_norm_vec_Max by auto
-    have xs_le_2: "\<bar>x$i + x$j\<bar>\<le>2" if "i< dim_vec x" "j< dim_vec x" for i j
-    proof - 
-      have "\<bar>x$i + x$j\<bar> \<le> \<bar>x$i\<bar> + \<bar>x$j\<bar>"
-      by (auto simp add: abs_triangle_ineq)
-      then show ?thesis using xi_le_1[OF that(1)] xi_le_1[OF that(2)] by auto
-    qed
-
-    have " \<bar>d5 (n - Suc 0) + d1 0\<bar> < 5"
-    proof -
-      have "\<bar>d5 (n - Suc 0) + d1 0\<bar> \<le> \<bar>d5 (n - Suc 0)\<bar> + \<bar>d1 0\<bar>" 
-        by (subst abs_triangle_ineq, auto)
-      also have "\<dots> \<le> 2 + \<bar>d1 0\<bar>" 
-      proof -
-        have "5 * (n - Suc 0) + 1 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        moreover have "5 * (n - Suc 0) + 3 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        ultimately show ?thesis unfolding d5_def 
-        using xs_le_2[of "5 * (n - Suc 0) + 1" "5 * (n - Suc 0) + 3"] unfolding dim_vec_x_5n
-        by simp
-      qed
-      also have "\<dots> \<le> 4" 
-      proof -
-        have "2 < 5 * n" using \<open>0 < length a\<close> n_def by linarith
-        then show ?thesis unfolding d1_def
-        using xi_le_1[of "0"] xi_le_1[of "0*5+2"] unfolding dim_vec_x_5n 
-        using \<open>length a > 0\<close> n_def by simp
-      qed
-      finally show ?thesis by linarith
-    qed
-
-    moreover have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> < 5" 
-      if "0 < i" and "i<4*n" and "i mod 4 = 0" for i 
-    proof -
-      have "\<bar>d1 (i div 4) + d5 (i div 4 - Suc 0)\<bar> \<le> \<bar>d1 (i div 4)\<bar> + \<bar>d5 (i div 4 - Suc 0)\<bar>" 
-        by (subst abs_triangle_ineq, auto)
-      also have "\<dots> \<le> 2 + \<bar>d5 (i div 4 - Suc 0)\<bar>"
-      proof -
-        have "i div 4 * 5 + 1 < 5 * n" using that \<open>0 < length a\<close> n_def by linarith
-        moreover have "i div 4 * 5 + 2 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
-        ultimately show ?thesis unfolding d1_def
-        using xs_le_2[of "(i div 4 * 5)" "i div 4 * 5 + 2"] unfolding dim_vec_x_5n by simp
-      qed
-      also have "\<dots> \<le> 4"
-      proof -
-        have "5 * (i div 4 - Suc 0) + 1 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
-        moreover have "5 * (i div 4 - Suc 0) + 3 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
-        ultimately show ?thesis unfolding d5_def
-        using xs_le_2[of "5 * (i div 4 - Suc 0) + 1"] unfolding dim_vec_x_5n by simp
-      qed
-      finally show ?thesis by linarith
-    qed
-
-    moreover have "\<bar>d2 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 1" for i 
-    proof -
-      have "i div 4 * 5 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
-      moreover have "i div 4 * 5 +1 < 5 * n" using that \<open>0 < length a\<close> n_def by auto
-      ultimately show ?thesis unfolding d2_def
-        using xs_le_2[of "i div 4 * 5" "i div 4 * 5 +1"] unfolding dim_vec_x_5n by simp
-    qed
-
-    moreover have "\<bar>d3 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 2" for i 
-    proof -
-      have *:  "i div 4 * 5 \<le> (n-1) * 5" using that \<open>length a > 0\<close> n_def by auto
-      then have "i div 4 * 5 +3 < 5 * n" using that by auto
-      moreover have "i div 4 * 5 + 2 < 5 * n" using that * by auto
-      ultimately show ?thesis unfolding d3_def
-        using xs_le_2[of "i div 4 * 5 +3" "i div 4 * 5 +2"] unfolding dim_vec_x_5n by simp
-    qed
-
-    moreover have "\<bar>d4 (i div 4)\<bar> < 5" if "i<4*n" and "i mod 4 = 3" for i 
-    proof -
-      have *:  "i div 4 * 5 \<le> (n-1) * 5" using that \<open>length a > 0\<close> n_def by auto
-      have "\<bar>d4 (i div 4)\<bar> \<le> \<bar>x $ (i div 4 * 5) + x $ (i div 4 * 5 + 3)\<bar> + \<bar>x $ (i div 4 * 5 + 4)\<bar>"
-        unfolding d4_def by (auto simp add: abs_triangle_ineq)
-      moreover {
-      have "i div 4 * 5 +3 < 5 * n" using that * by auto
-      moreover have "i div 4 * 5 < 5 * n" using that * by auto
-      ultimately have "\<bar>x $ (i div 4 * 5) + x $ (i div 4 * 5 + 3)\<bar>\<le>2"
-        using xs_le_2[of "i div 4 * 5" "i div 4 * 5 +3"] unfolding dim_vec_x_5n by simp
-      }
-      moreover {
-      have "i div 4 * 5 +4 < 5 * n" using that * by auto
-      then have "\<bar>x $ (i div 4 * 5 + 4)\<bar> \<le> 1" using xi_le_1 unfolding dim_vec_x_5n by simp
-      }
-      ultimately show ?thesis by linarith
-    qed
-
-
-    ultimately have d_lt_5: "\<bar>d i\<bar> < 5" if "i < 4 * n" for i
-      using that by (subst mod_4_choices[of i], unfold d_def, auto)
-    
-    have sum_zero: "(\<Sum>k<4*n. d k * 5^k) = 0" using eq_0' rewrite_digits by auto
-
-    then have d_eq_0: "d k = 0" if "k<4*n" for k 
-      using respresentation_in_basis_eq_zero[OF sum_zero _ _ that] d_lt_5 by auto
-
-    (*These are the main equations*)
-    have eq_1: "x$(i*5) + x$(i*5+2) + x$((i-1)*5+1) + x$((i-1)*5+3) = 0" if "i\<in>{1..<n}" for i
-      using that d_eq_0[of "4*i"] unfolding d_def d1_def d5_def by (auto simp add: mult.commute)
-
-    have eq_2: "x$0 + x$2 + x$((n-1)*5+1) + x$((n-1)*5+3) = 0" 
-      using d_eq_0[of "0"] unfolding d_def d1_def d5_def
-      by (smt (z3) \<open>0 < length a\<close> add_cancel_right_left bits_mod_0 bot_nat_0.not_eq_extremum 
-      mult.commute mult_is_0 n_def zero_neq_numeral)
-
-    have eq_3: "x$(i*5) + x$(i*5+1) = 0" if "i\<in>{0..<n}" for i 
-      using that d_eq_0[of "4*i+1"] unfolding d_def d2_def
-      by (auto, metis add.right_neutral div_less div_mult_self1 mult.commute one_less_numeral_iff 
-        plus_1_eq_Suc semiring_norm(76) zero_neq_numeral)
-
-    have eq_4: "x$(i*5+2) + x$(i*5+3) = 0" if "i\<in>{0..<n}" for i 
-      using that d_eq_0[of "4*i+2"] unfolding d_def d3_def
-      by (auto, smt (verit, ccfv_threshold) Suc_times_numeral_mod_eq add.right_neutral 
-        add_2_eq_Suc' add_self_div_2 div_mult_self4 mod_Suc mod_div_trivial 
-        numeral_Bit0_div_2 one_eq_numeral_iff plus_1_eq_Suc semiring_norm(85))
-
-    have eq_5: "x$(i*5) + x$(i*5+3) + x$(i*5+4) = 0" if "i\<in>{0..<n}" for i 
-      using that d_eq_0[of "4*i+3"] unfolding d_def d4_def by auto
-    
-    have eq_3': "x$(i*5) = - x$(i*5+1)" if "i\<in>{0..<n}" for i
-      using eq_3[OF that] by auto
-
-    have eq_4': "x$(i*5+2) = - x$(i*5+3)" if "i\<in>{0..<n}" for i
-      using eq_4[OF that] by auto
-
-    have "x$(i*5) + x$(i*5+2) = x$((i-1)*5) + x$((i-1)*5+2)" if "i\<in>{1..<n}" for i 
-    proof -
-      have *: "i - 1 \<in> {0..<n}" using that by auto
-      then show ?thesis using eq_1[OF that] 
-      by (subst eq_3'[OF *], subst eq_4'[OF *], auto)
-    qed
-
-    define w where "w = x$0 + x$2"
-  (*This is the weight of the solution, since $x_{i,0} + x_{i,2}$ does not depend on the index i.*)
-    
-
-    have "\<bar>w\<bar> \<le> 1" using eq_3' eq_4' w_def sorry
-
-    moreover have "w\<noteq>0" sorry
+(*I_def:  "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
+  w_def:  "w = x$((n-1)*5)"
+*)
 
     ultimately have "w=1 \<or> w = -1" by auto
     then consider (pos) "w=1" | (neg) "w=-1" by blast
     then show ?thesis
     proof cases
       case pos
-      then show ?thesis sorry
+      have 01:"(x$(i*5) = 0 \<and> x$(i*5+4) = 1) \<or> (x$(i*5) = 1 \<and> x$(i*5+4) = 0)" if "i<n-1" for i
+      proof -
+        have "i * 5 < dim_vec x" using that \<open>n>0\<close> unfolding dim_vec_x_5n by auto
+        then have "x$(i*5) \<in> {-1,0,1}" using xi_le_1[of "i*5"] 
+          by auto
+        then consider (minus) "x$(i*5) = -1" | (zero) "x$(i*5) = 0" | (plus) "x$(i*5) = 1" 
+          by blast
+        then show ?thesis 
+        proof (cases)
+          case minus
+          then have "2 = x $ (i * 5 + 4)" using w_eq_02[of i] that \<open>w=1\<close> by auto
+          then have False using xi_le_1[of "i*5+4"] that unfolding dim_vec_x_5n
+            by linarith
+          then show ?thesis by auto
+        next
+          case zero
+          then have "x $ (i * 5 + 4) = 1" using w_eq_02[of i] that unfolding \<open>w=1\<close> by auto
+          then show ?thesis using zero by auto
+        next
+          case plus
+          then have "x $ (i * 5 + 4) = 0" using w_eq_02[of i] that unfolding \<open>w=1\<close> by auto
+          then show ?thesis using plus by auto
+        qed
+      qed
+
+      have "n-1\<in>I" using w_def unfolding \<open>w=1\<close> I_def n_def[symmetric] 
+        by (auto simp add: \<open>n>0\<close> mult.commute)
+
+      have I_0: "x$(i*5) = 1" if "i\<in>I" for i 
+      proof (cases "i<n-1")
+        case True
+        then show ?thesis using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using w_def \<open>w=1\<close> by auto
+      qed
+      have I_2: "x$(i*5+2) = 0" if "i\<in>I" for i 
+      proof (cases "i<n-1")
+        case True
+        then have "x $ (i * 5 + 4) = 0" using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+        then show ?thesis using eq_4[of i] that True unfolding I_def n_def[symmetric] by auto
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then have "x$(i*5+1) = -1" using I_0[OF that] eq_3'[of i] by (simp add: \<open>0 < n\<close>)
+        moreover have "1 + x $ (i * 5 + 1) + x $ (i * 5 + 2) = 0"
+          using eq_2 w_eq_02[of 0] unfolding \<open>i=n-1\<close>
+          by (metis \<open>0 < n\<close> add_cancel_right_left atLeast0LessThan 
+            lessThan_iff mult_zero_left pos)
+        ultimately show ?thesis by auto
+      qed
+      have notI_0: "x$(i*5) = 0" if "i\<in>{0..<n} - I" for i 
+      proof (cases "i<n-1")
+        case True
+        then show ?thesis using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using \<open>n-1\<in>I\<close> that by auto
+      qed
+      have notI_2: "x$(i*5+2) = -1" if "i\<in>{0..<n} - I" for i 
+      proof (cases "i<n-1")
+        case True
+        then have "x $ (i * 5 + 4) = 1" using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+        then show ?thesis using eq_4[of i] that True unfolding I_def n_def[symmetric] by auto
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using \<open>n-1\<in>I\<close> that by auto
+      qed
+
+      have "0 = (\<Sum>i\<in>I. (x $ (i * 5) + x $ (i * 5 + 2)) * a ! i) + 
+        (\<Sum>i\<in>{0..<n} - I. (x $ (i * 5) + x $ (i * 5 + 2)) * a ! i)" 
+        unfolding eq_0[symmetric] 
+        by (subst sum.subset_diff[of I]) (auto simp add: I_def n_def lessThan_atLeast0)
+      moreover have "(x $ (i * 5) + x $ (i * 5 + 2)) = 1" if "i\<in>I" for i 
+        using I_0 I_2 that by auto
+      moreover have "(x $ (i * 5) + x $ (i * 5 + 2)) = -1" if "i\<in>{0..<n} - I" for i 
+        using notI_0 notI_2 that by auto
+      ultimately have "0 = (\<Sum>i\<in>I. a ! i) - (\<Sum>i\<in>{0..<n} - I. a ! i)" 
+        by (auto simp add: sum_negf)
+      then show ?thesis unfolding n_def by auto
     next
       case neg
-      then show ?thesis sorry
+      have 01:"(x$(i*5) = 0 \<and> x$(i*5+4) = -1) \<or> (x$(i*5) = -1 \<and> x$(i*5+4) = 0)" if "i<n-1" for i
+      proof -
+        have "i * 5 < dim_vec x" using that \<open>n>0\<close> unfolding dim_vec_x_5n by auto
+        then have "x$(i*5) \<in> {-1,0,1}" using xi_le_1[of "i*5"] 
+          by auto
+        then consider (minus) "x$(i*5) = -1" | (zero) "x$(i*5) = 0" | (plus) "x$(i*5) = 1" 
+          by blast
+        then show ?thesis 
+        proof (cases)
+          case plus
+          then have "-2 = x $ (i * 5 + 4)" using w_eq_02[of i] that \<open>w=-1\<close> by force
+          then have False using xi_le_1[of "i*5+4"] that unfolding dim_vec_x_5n
+            by linarith
+          then show ?thesis by auto
+        next
+          case zero
+          then have "x $ (i * 5 + 4) = -1" using w_eq_02[of i] that unfolding \<open>w=-1\<close> by auto
+          then show ?thesis using zero by auto
+        next
+          case minus
+          then have "x $ (i * 5 + 4) = 0" using w_eq_02[of i] that unfolding \<open>w=-1\<close> by auto
+          then show ?thesis using minus by auto
+        qed
+      qed
+
+      have "n-1\<in>I" using w_def unfolding \<open>w=-1\<close> I_def n_def[symmetric] 
+        by (auto simp add: \<open>n>0\<close> mult.commute)
+
+      have I_0: "x$(i*5) = -1" if "i\<in>I" for i 
+      proof (cases "i<n-1")
+        case True
+        then show ?thesis using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using w_def \<open>w=-1\<close> by auto
+      qed
+      have I_2: "x$(i*5+2) = 0" if "i\<in>I" for i 
+      proof (cases "i<n-1")
+        case True
+        then have "x $ (i * 5 + 4) = 0" using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+        then show ?thesis using eq_4[of i] that True unfolding I_def n_def[symmetric] by auto
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then have "x$(i*5+1) = 1" using I_0[OF that] eq_3'[of i] by (simp add: \<open>0 < n\<close>)
+        moreover have "-1 + x $ (i * 5 + 1) + x $ (i * 5 + 2) = 0"
+          using eq_2 w_eq_02[of 0] unfolding \<open>i=n-1\<close>
+          by (metis \<open>0 < n\<close> add_cancel_right_left lessThan_atLeast0 lessThan_iff 
+            mult_zero_left neg)
+        ultimately show ?thesis by auto
+      qed
+      have notI_0: "x$(i*5) = 0" if "i\<in>{0..<n} - I" for i 
+      proof (cases "i<n-1")
+        case True
+        then show ?thesis using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using \<open>n-1\<in>I\<close> that by auto
+      qed
+      have notI_2: "x$(i*5+2) = 1" if "i\<in>{0..<n} - I" for i 
+      proof (cases "i<n-1")
+        case True
+        then have "x $ (i * 5 + 4) = -1" using 01[OF True] that unfolding I_def n_def[symmetric] 
+        by (simp add: mult.commute)
+        then show ?thesis using eq_4[of i] that True unfolding I_def n_def[symmetric] by auto
+      next
+        case False
+        then have "i=n-1" using that unfolding I_def n_def[symmetric] by auto
+        then show ?thesis using \<open>n-1\<in>I\<close> that by auto
+      qed
+
+      have "0 = (\<Sum>i\<in>I. (x $ (i * 5) + x $ (i * 5 + 2)) * a ! i) + 
+        (\<Sum>i\<in>{0..<n} - I. (x $ (i * 5) + x $ (i * 5 + 2)) * a ! i)" 
+        unfolding eq_0[symmetric] 
+        by (subst sum.subset_diff[of I]) (auto simp add: I_def n_def lessThan_atLeast0)
+      moreover have "(x $ (i * 5) + x $ (i * 5 + 2)) = -1" if "i\<in>I" for i 
+        using I_0 I_2 that by auto
+      moreover have "(x $ (i * 5) + x $ (i * 5 + 2)) = 1" if "i\<in>{0..<n} - I" for i 
+        using notI_0 notI_2 that by auto
+      ultimately have "0 = (\<Sum>i\<in>I. a ! i) - (\<Sum>i\<in>{0..<n} - I. a ! i)" 
+        by (auto simp add: sum_negf)
+      then show ?thesis unfolding n_def by auto
     qed
   qed
   ultimately show ?case by auto
