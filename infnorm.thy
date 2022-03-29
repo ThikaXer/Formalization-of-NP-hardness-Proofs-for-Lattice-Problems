@@ -34,9 +34,5 @@ proof (induct v)
   finally show ?case unfolding linf_norm_vec_def by auto
 qed auto
 
-(*
-definition infnorm ::"'a vec \<Rightarrow> 'a::{linorder, abs}" where
-  "infnorm v \<equiv> Max { \<bar>v$i\<bar> | i. i < dim_vec v}"
-*)
 
 end

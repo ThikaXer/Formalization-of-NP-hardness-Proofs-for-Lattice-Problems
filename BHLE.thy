@@ -5,7 +5,8 @@ imports Main
         infnorm
         Partition
         Lattice_int
-        Digits_2
+        Digits_int
+        Additional_Lemmas
 
 begin
 text \<open>Bounded Homogeneous Linear Equation Problem\<close>
@@ -15,7 +16,14 @@ definition bhle :: "(int vec * int) set" where
       x \<noteq> 0\<^sub>v (dim_vec x) \<and> \<parallel>x\<parallel>\<^sub>\<infinity> \<le> k}"
 
 text \<open>Reduction of bounded homogeneous linear equation to partition problem\<close>
-(*Remember: i runs from 1 to n=length a*)
+
+text \<open>For the reduction function, one defines five-tuples for every element in a. 
+  The last tuple plays an important role. It consists only of four elements in order 
+  to add constraints to the other tuples.
+  These values are formed in a way such that they form all constraints needed for the 
+  reductions.
+  Note, that I have changed some indices to enable better indexing in the vectors/lists.\<close>
+
 definition b1 :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" where
   "b1 i M a = a + M * (5^(4*i-4) + 5^(4*i-3) + 5^(4*i-1))"
 
@@ -37,14 +45,13 @@ definition b4_last :: "nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int
 definition b5 :: "nat \<Rightarrow> int \<Rightarrow> int" where
   "b5 i M = M * (5^(4*i-1))"
 
-text \<open>Change order of values in paper such that 3 is in last place and can be omitted 
-    in the last entry.\<close>
+text \<open>Change order of indices in paper such that 3 is in last place and can be omitted 
+    in the last entry. This ensures that the weight of the solution is 1 or -1,
+    essential for the proof of NP-hardnes.\<close>
 
 definition b_list :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
   "b_list as i M = [b1 (i+1) M (as!i), b2 (i+1) M, b4 (i+1) M (as!i), b5 (i+1) M, b3 (i+1) M]"
 
-(* omit the 3rd entry in the last list. This ensures that the weight of the solution is 1 or -1,
-essential for the proof of NP-hardnes*)
 definition b_list_last :: "int list \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int list" where
   "b_list_last as n M = [b1 n M (last as), b2_last n M, b4_last n M (last as), b5 n M]"
 
@@ -54,17 +61,13 @@ definition gen_bhle :: "int list \<Rightarrow> int vec" where
   (map (\<lambda>i. b_list as i M) [0..<n-1]) 
   @ (if n>0 then b_list_last as n M else [])))"
 
-
+text \<open>The reduction function.\<close>
 definition reduce_bhle_partition:: "(int list) \<Rightarrow> ((int vec) * int)" where
   "reduce_bhle_partition \<equiv> (\<lambda> a. (gen_bhle a, 1))"
 
 
 
 text \<open>Lemmas for proof\<close>
-
-lemma length_concat_map_5: 
-  "length (concat (map (\<lambda>i. [f1 i, f2 i, f3 i, f4 i, f5 i]) xs)) = length xs * 5" 
-by (induct xs, auto)
 
 lemma dim_vec_gen_bhle:
   assumes "as\<noteq>[]"
@@ -311,147 +314,6 @@ next
 qed
 
 
-lemma split_sum_list:
-  assumes "\<forall>i<n. a!i = b!i + M * c!i" 
-          "length (a::int list) = n" 
-          "length (b::int list) = n" 
-          "length (c::int list) = n" 
-          "length (x::int list) = n"
-  shows "(\<Sum>i<n. x!i * a!i) = (\<Sum>i<n. x!i * b!i) + M * (\<Sum>i<n. x!i * c!i)"
-proof -
-  have "(\<Sum>i<n. x!i * a!i) = (\<Sum>i<n. x!i * ( b!i + M * c!i))" using assms(1) by auto
-  also have "\<dots> = (\<Sum>i<n. x!i * b!i) + (\<Sum>i<n. M * x!i * c!i)"
-    by (simp add: distrib_left mult.commute mult.left_commute)
-  also have "\<dots> = (\<Sum>i<n. x!i * b!i) + M * (\<Sum>i<n. x!i * c!i)"
-    using sum_distrib_left[symmetric, where r=M and f="(\<lambda>i. x!i*c!i)" and A = "{0..<n}"]  
-    by (metis (no_types, lifting) lessThan_atLeast0 mult.assoc sum.cong)
-  finally show ?thesis by blast
-qed
-
-lemma sum_split_idx_prod:
-  "(\<Sum>i=0..<k*l::nat. f i) = (\<Sum>i=0..<k. (\<Sum>j=0..<l. f (i*l+j)))"
-proof -
-  have set_rew: "{0..<k*l} = (\<lambda>(i,j). i*l+j) ` ({0..<k} \<times> {0..<l})"
-  proof (safe, goal_cases)
-    case (1 x)
-    have "x = (\<lambda>(i,j). i*l+j) (x div l, x mod l)" by auto
-    moreover have "(x div l, x mod l)\<in>{0..<k} \<times> {0..<l}" using 1 less_mult_imp_div_less
-      by (metis le_less_trans lessThan_atLeast0 lessThan_iff mem_Sigma_iff
-        mod_less_divisor mult_zero_right neq0_conv zero_le)
-    ultimately show ?case by blast
-  next
-    case (2 x i j)
-    then show ?case 
-    by (auto, metis less_nat_zero_code linorder_neqE_nat mod_lemma mult.commute nat_mod_lem)
-  qed
-  have inj: "inj_on (\<lambda>(i, y). i * l + y) ({0..<k} \<times> {0..<l})" 
-    unfolding inj_on_def by (auto) 
-      (metis add.commute add_right_imp_eq linorder_neqE_nat mod_mult_self2 mult.commute 
-        mult_cancel_right nat_mod_lem not_less_zero, 
-       metis add.commute le0 le_less_trans mod_mult_self2 mult.commute nat_mod_lem)
-  have "(\<Sum> i\<in>{0..<k*l}. f i) = (\<Sum>(i,j)\<in>{0..<k}\<times>{0..<l}. f (i*l+j))" 
-    unfolding set_rew using inj
-    by (subst sum.reindex[of "(\<lambda>(i, j). i * l + j)" "({0..<k} \<times> {0..<l})" f])
-       (auto simp add: prod.case_distrib)
-  also have "\<dots> = (\<Sum>i\<in>{0..<k}. (\<Sum>j\<in>{0..<l}. f (i*l+j)))"
-    using sum.cartesian_product[of "(\<lambda>i j. f (i*l+j))" "{0..<l}" "{0..<k}", symmetric]
-    by auto
-  finally show ?thesis by auto
-qed
-
-
-lemma lt_M_list:
-  assumes "length (b::int list) = n" 
-          "length (x::int list) = n"
-          "M > k * (\<Sum>i<n. \<bar>b!i\<bar>)"
-          "\<forall>i<n. \<bar>x!i\<bar> \<le>k" 
-          "k>0"
-  shows "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> < M"
-proof - 
-  have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> \<le> (\<Sum>i<n. \<bar>x!i * b!i\<bar>)" using sum_abs by auto
-  also have "\<dots> = (\<Sum>i<n. \<bar>x!i\<bar> * \<bar>b!i\<bar>)" using abs_mult by metis
-  also have "\<dots> \<le> (\<Sum>i<n. k * \<bar>b!i\<bar>)" using assms
-    by (smt (verit, del_insts) lessThan_iff mult.commute mult_left_mono sum_mono)
-  also have "\<dots> = k * (\<Sum>i<n. \<bar>b!i\<bar>)" using sum_distrib_left by metis
-  finally have "\<bar>(\<Sum>i<n. x!i * b!i)\<bar> \<le> k * (\<Sum>i<n. \<bar>b!i\<bar>)" by linarith
-  then show ?thesis using assms by auto
-qed
-
-
-(*not on lists, using functions instead*)
-(* declare [[show_types]]*)
-
-lemma lt_M:
-  assumes "M > (\<Sum>i<(n::nat). \<bar>b i\<bar>::int)"
-          "\<forall>i<n. \<bar>x i\<bar> \<le> 1" 
-  shows "\<bar>(\<Sum>i<n. x i * b i)\<bar> < M"
-proof - 
-  have "\<bar>(\<Sum>i<(n::nat). x i * b i)::int\<bar> \<le> (\<Sum>i<n. \<bar>x i * b i\<bar>)" using sum_abs by auto
-  moreover have "\<dots> = (\<Sum>i<n. \<bar>x i\<bar> * \<bar>b i\<bar>)" using abs_mult by metis
-  moreover have "\<dots> \<le> (\<Sum>i<n. \<bar>b i\<bar>)" using assms 
-    by (smt (verit, best) lessThan_iff mult_cancel_right2 sum_mono zero_less_mult_iff)
-  moreover have "\<dots> = (\<Sum>i<n. \<bar>b i\<bar>)" using sum_distrib_left by metis
-  ultimately have "\<bar>(\<Sum>i<n. x i * b i)\<bar> \<le> (\<Sum>i<n. \<bar>b i\<bar>)" by linarith
-  then show ?thesis using assms by auto
-qed
-
-
-
-lemma split_sum:
-  "(\<Sum>i<(n::nat). x i * (a i + M * b i)::int) = (\<Sum>i<n. x i * a i) + M * (\<Sum>i<n. x i * b i)"
-proof -
-  have "(\<Sum>i<(n::nat). x i * (a i + M * b i)) = (\<Sum>i<n. x i * a i) + (\<Sum>i<n. M * x i * b i)"
-    by (simp add: distrib_left mult.commute mult.left_commute)
-  also have "\<dots> = (\<Sum>i<n. x i * a i) + M * (\<Sum>i<n. x i * b i)"
-    using sum_distrib_left[symmetric, where r=M and f="(\<lambda>i. x i*b i)" and A = "{0..<n}"]  
-    by (metis (no_types, lifting) lessThan_atLeast0 mult.assoc sum.cong)
-  finally show ?thesis by blast
-qed
-
-
-
-lemma split_eq_system:
-  assumes "M > (\<Sum>i<n::nat. \<bar>a i\<bar>::int)"
-          "\<forall>i<n. \<bar>x i\<bar> \<le> 1" 
-          "(\<Sum>i<n. x i * (a i + M * b i)) = 0" 
-  shows   "(\<Sum>i<n. x i * a i) = 0 \<and> (\<Sum>i<n. x i * b i) = 0"
-using assms proof (safe, goal_cases)
-  case 1
-  then show ?case 
-  proof (cases "(\<Sum>i<n. x i * b i) = 0")
-    case True
-    then show ?thesis using assms(3) split_sum[of x a M b n] by auto
-  next
-    case False
-    then have "\<bar>(\<Sum>i<n. x i * a i)\<bar> < M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
-      using lt_M[OF assms(1) assms(2)] False
-      by (smt (verit, best) mult_less_cancel_left2)
-    moreover have "\<bar>(\<Sum>i<n. x i * a i)\<bar> = M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
-      using assms(3) split_sum[of x a M b n] calculation by linarith
-    ultimately have False by linarith 
-    then show ?thesis by auto
-  qed
-next
-  case 2
-  then show ?case 
-  proof (cases "(\<Sum>i<n. x i * b i) = 0")
-    case True
-    then show ?thesis using split_sum 2 using lt_M[OF assms(1) assms(2)]
-       by auto
-  next
-    case False
-    then have "\<bar>(\<Sum>i<n. x i * a i)\<bar> < M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
-      using lt_M[OF assms(1) assms(2)] False
-      by (smt (verit, best) mult_less_cancel_left2)
-    moreover have "\<bar>(\<Sum>i<n. x i * a i)\<bar> = M * \<bar>(\<Sum>i<n. x i * b i)\<bar>" 
-      using split_sum[of x a M b n] assms calculation by linarith
-    ultimately have False by linarith 
-    then show ?thesis by auto
-  qed
-qed
-
-value "let x = [0,1,2,3,4::int] in
-  take (length x - 3) x @ drop (length x -2) x"
 
 
 text \<open>Well-definedness of reduction function\<close>
@@ -462,6 +324,7 @@ lemma well_defined_reduction_subset_sum:
 using assms unfolding partition_problem_nonzero_def reduce_bhle_partition_def bhle_def
 proof (safe, goal_cases)
   case (1 I)
+text \<open>Given a subset I, we must construct a vector x such that the properties of bhle hold.\<close>
   have "finite I" using 1 by (meson subset_eq_atLeast0_lessThan_finite)
   have "length a > 0" using \<open>a\<noteq>[]\<close> by auto
   define n where "n = length a"
@@ -486,7 +349,7 @@ proof (safe, goal_cases)
   have "0 < dim_vec x" unfolding dimx_eq_5dima using \<open>length a > 0\<close> by linarith
   define M where "M = 2*(\<Sum>i<length a. \<bar>a!i\<bar>)+1"
 
-(*lemmas for proof*)
+text \<open>Some conditional lemmas for the proof.\<close>
   have x_nth: 
     "x $ (i*5+j) = (if i\<in>I then plus_minus ! j else minus_plus ! j)" if "i<n-1" "j<5" for i j 
   proof -
@@ -677,7 +540,7 @@ proof (safe, goal_cases)
     finally show ?thesis by auto
   qed
 
-(*actual proof*)
+text \<open>The actual proof. \<close>
   have "(gen_bhle a) \<bullet> x = 0"
   proof -
     define f where "f = (\<lambda>i. (\<Sum>j = 0..<5. gen_bhle a $ (i*5+j) * x $ (i*5+j)))"
@@ -935,96 +798,31 @@ qed
 
 text \<open>NP-hardness of reduction function\<close>
 
-(*split into 4 mod classes*)
-lemma lt_4_split: "(i::nat) < 4 \<longrightarrow> i = 0 \<or> i = 1 \<or> i = 2 \<or> i = 3"
-by auto
-
-lemma mod_exhaust_less_4_int: "(i::int) mod 4 = 0 \<or> i mod 4 = 1 \<or> i mod 4 = 2 \<or> i mod 4 = 3"
-using MacLaurin.mod_exhaust_less_4 by auto
-
-lemma mod_4_choices:
-  assumes "i mod 4 = 0 \<longrightarrow> P i"
-          "i mod 4 = 1 \<longrightarrow> P i"
-          "i mod 4 = 2 \<longrightarrow> P i"
-          "i mod 4 = 3 \<longrightarrow> P i"
-  shows "P (i::nat)"
-using assms mod_exhaust_less_4 by auto
-
-lemma mod_4_if_split:
-  assumes "i mod 4 = 0 \<longrightarrow> P = P0 i"
-          "i mod 4 = 1 \<longrightarrow> P = P1 i"
-          "i mod 4 = 2 \<longrightarrow> P = P2 i"
-          "i mod 4 = 3 \<longrightarrow> P = P3 i"
-  shows "P = (if i mod 4 = 0 then P0 i else
-               (if i mod 4 = 1 then P1 i else
-               (if i mod 4 = 2 then P2 i else P3 (i::nat))))" (is "?P i")
-using mod_exhaust_less_4  by (auto simp add: assms)
-
-(*split into 5 mod classes*)
-
-lemma lt_5_split: "(i::nat) < 5 \<longrightarrow> i = 0 \<or> i = 1 \<or> i = 2 \<or> i = 3 \<or> i = 4"
-by auto
-
-lemma mod_exhaust_less_5_int: 
-  "(i::int) mod 5 = 0 \<or> i mod 5 = 1 \<or> i mod 5 = 2 \<or> i mod 5 = 3 \<or> i mod 5 = 4"
-using lt_5_split by linarith
-
-lemma mod_exhaust_less_5: 
-  "(i::nat) mod 5 = 0 \<or> i mod 5 = 1 \<or> i mod 5 = 2 \<or> i mod 5 = 3 \<or> i mod 5 = 4"
-using lt_5_split by linarith
-
-lemma mod_5_choices:
-  assumes "i mod 5 = 0 \<longrightarrow> P i"
-          "i mod 5 = 1 \<longrightarrow> P i"
-          "i mod 5 = 2 \<longrightarrow> P i"
-          "i mod 5 = 3 \<longrightarrow> P i"
-          "i mod 5 = 4 \<longrightarrow> P i"
-  shows "P (i::nat)"
-using assms mod_exhaust_less_5 by auto
-
-lemma mod_5_if_split:
-  assumes "i mod 5 = 0 \<longrightarrow> P = P0 i"
-          "i mod 5 = 1 \<longrightarrow> P = P1 i"
-          "i mod 5 = 2 \<longrightarrow> P = P2 i"
-          "i mod 5 = 3 \<longrightarrow> P = P3 i"
-          "i mod 5 = 4 \<longrightarrow> P = P4 i"
-  shows "P = (if i mod 5 = 0 then P0 i else
-               (if i mod 5 = 1 then P1 i else
-               (if i mod 5 = 2 then P2 i else
-               (if i mod 5 = 3 then P3 i else
-                                    P4 (i::nat)))))" (is "?P i")
-using mod_exhaust_less_5  by (auto simp add: assms)
-
-(*number in set is lower limit plus difference*)
-
-lemma split_lower_plus_diff:
-  assumes "s \<in> {n..<m::nat}"
-  obtains j where "s = n+j" and "j<m-n"
-using assms 
-by (metis atLeastLessThan_iff diff_diff_left le_Suc_ex zero_less_diff)
-
-
-(*NP-hardness*)
-
-
 lemma NP_hardness_reduction_subset_sum:
   assumes "reduce_bhle_partition a \<in> bhle"
   shows "a \<in> partition_problem_nonzero"
 using assms unfolding reduce_bhle_partition_def bhle_def partition_problem_nonzero_def
 proof (safe, goal_cases)
   case (1 x)
+text \<open>Given a vector x from bhle find the subset I such that it has tthe same sum as 
+  its complement.\<close>
   have "length a > 0" using 1(3) dim_vec_gen_bhle dim_vec_gen_bhle_empty by auto
   define I where "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
   define n where "n = length a"
   then have "n > 0" using \<open>length a>0\<close> by auto 
   have dim_vec_x_5n: "dim_vec x = 5 * n - 1" unfolding n_def using 1
   by (metis dim_vec_gen_bhle dim_vec_gen_bhle_empty less_not_refl2)
-  have "length a > 0" using dim_vec_gen_bhle_empty 1(3) by auto
-  moreover have "I\<subseteq>{0..<length a}" using 1 I_def by auto
+  have "I\<subseteq>{0..<length a}" using 1 I_def by auto
+text \<open>This is the trickiest part in the proof. One first has to generate equations from x
+  which form conditions on the entries of x. To do so, we consider the formula
+  \<open>gen_bhle a \<bullet> x = 0\<close> and rewrite it in basis 5. Every digit then gives us an 
+  arithmetic expression in entries of x equals to zero.
+  From these equations, we can deduce the wanted properties.\<close>
   moreover have "sum ((!) a) I = sum ((!) a) ({0..<length a} - I)" 
   proof -
     define M where "M = 2 * (\<Sum>i<length a. \<bar>a ! i\<bar>) + 1"
 
+    text \<open>Rewriting the first formula in a huge sum.\<close>
     define a0 where "a0 = (\<lambda>i. if i mod (5::nat) \<in> {0,2} then a!(i div 5) else 0)"
     define a1 where "a1 = (\<lambda>i. if i mod (5::nat) \<in> {0,4} then 1 else 0::int)"
     define a1_last where "a1_last = (\<lambda>i. if i mod (5::nat) \<in> {0} then 1 else 0::int)"
@@ -1074,7 +872,7 @@ proof (safe, goal_cases)
          b1_def b2_def b2_last_def b3_def b4_def b4_last_def b5_def)
     qed
 
-
+    text \<open>Splitting of the first part of the sum containing the $a_i$.\<close>
     have gen_bhle_nth: "gen_bhle a $ i = a0 i + M * (a0_rest i)" 
       if "i<dim_vec (gen_bhle a)" for i
     proof -
@@ -1153,7 +951,7 @@ proof (safe, goal_cases)
     then have sum_gen_bhle: "(\<Sum>i<5 * n-1. x $ i * (a0 i + M * a0_rest i)) = 0"
       using 1(1) by simp
 
-
+text \<open>The first equation containing the $a_i$\<close>
     have eq_0: "(\<Sum>i<n. (x $ (i*5) + x $ (i*5+2)) * a!i) = 0" and
          eq_0': "(\<Sum>i<5*n-1. x$i * (a0_rest i)) = 0"
     proof -
@@ -1271,6 +1069,7 @@ proof (safe, goal_cases)
     have digit_a0_rest: "digit ?eq_0'_left k = 0" for k
       using eq_0' by (simp add: eq_0' digit_altdef)
 
+text \<open>Define the digits in basis 5.\<close>
     define d1 where "d1 = (\<lambda>i. x$(i*5) + (if i<n-1 then x$(i*5+4) else 0))"
     define d2 where "d2 = (\<lambda>i. x$(i*5) + x$(i*5+1))"
     define d3 where "d3 = (\<lambda>i. (if i<n-1 then x$(i*5+4) else 0) + x$(i*5+2))"
@@ -1283,6 +1082,7 @@ proof (safe, goal_cases)
       (if k mod 4 = 1 then d2 (k div 4) else                  
       (if k mod 4 = 2 then d3 (k div 4) else d4 (k div 4)))))"
 
+text \<open>Rewrite the sum in basis 5.\<close>
     have rewrite_digits: "(\<Sum>i<5*n-1. x$i * (a0_rest i)) = (\<Sum>k<4*n. d k * 5^k)"
     proof -
       define f1::"nat \<Rightarrow> nat \<Rightarrow> int" where "f1 = (\<lambda>i j.
@@ -1331,7 +1131,27 @@ proof (safe, goal_cases)
       qed
       define x_pad where "x_pad = (\<lambda>i. if i<5*n-1 then x$i else 1)"
       have pad: "(\<Sum>i<5*n-1. x$i * (a0_rest i)) = (\<Sum>i<5*n. x_pad i * (a0_rest i))" 
-        unfolding x_pad_def  sorry
+      proof -
+        have "Suc (5 * n - 1) = 5*n" using \<open>n>0\<close> by auto
+        have "(\<Sum>i<5 * n - 1. x_pad i * a0_rest i) = (\<Sum>i<5 * n - 1. x$i * a0_rest i)" 
+          by (subst sum.cong[of "{..<5*n-1}" "{..<5*n-1}" 
+            "(\<lambda>i. x_pad i * a0_rest i)" "(\<lambda>i. x$i * a0_rest i)"], unfold x_pad_def, auto)
+        moreover have "x_pad (5 * n - 1) * a0_rest (5 * n - 1) = 0" 
+        proof -
+          have "\<not>((5 * n - 1) div 5 < n - 1)" using \<open>n>0\<close> by auto
+          moreover have "(5 * n - 1) mod 5 = 4" 
+          proof -
+            have "5 * n - 1 = 5*(n-1)+4" using \<open>n>0\<close> by auto
+            show ?thesis unfolding \<open>5 * n - 1 = 5*(n-1)+4\<close> by auto
+          qed
+          ultimately show ?thesis
+            unfolding a0_rest_def a0_last_def a1_last_def a2_def a3_last_def a4_def a5_def 
+            by auto
+        qed
+        ultimately show ?thesis
+          using sum.lessThan_Suc[of "(\<lambda>i. x_pad i * (a0_rest i))" "5 * n - 1"] 
+          unfolding \<open>Suc (5 * n - 1) = 5*n\<close> by auto
+      qed
       have *: "(\<Sum>i<5*n. x_pad i * (a0_rest i)) = 
         (\<Sum>i<n.(\<Sum>j<5. x_pad (i*5+j) * (a0_rest (i*5+j))))"
         (is "\<dots> =  (\<Sum>i<n.(\<Sum>j<5. ?f0 i j))")
@@ -1482,6 +1302,7 @@ proof (safe, goal_cases)
       ultimately show ?thesis by auto
     qed
 
+text \<open>Some helping lemmas to get equations.\<close>
     have xi_le_1: "\<bar>x$i\<bar>\<le>1" if "i< dim_vec x" for i 
       using 1(5) that unfolding linf_norm_vec_Max by auto
     have xs_le_2: "\<bar>x$i + x$j\<bar>\<le>2" if "i< dim_vec x" "j< dim_vec x" for i j
@@ -1536,7 +1357,7 @@ proof (safe, goal_cases)
     then have d_eq_0: "d k = 0" if "k<4*n" for k 
       using respresentation_in_basis_eq_zero[OF sum_zero _ _ that] d_lt_5 by auto
 
-    (*These are the main equations*)
+text \<open>These are the main equations.\<close>
     have eq_1: "x$(i*5) + (if i <n-1 then x$(i*5+4) else 0) + x$((i-1)*5+1) + x$((i-1)*5+2) = 0"
        if "i\<in>{1..<n}" for i
       using that d_eq_0[of "4*i"] unfolding d_def d1_def d5_def by (auto simp add: mult.commute)
@@ -1583,11 +1404,12 @@ proof (safe, goal_cases)
       by (subst eq_3'[OF *], subst eq_4'[OF **], auto)
     qed
 
+text \<open>This defines the weight of the solution, since $x_{i,0} + x_{i,4}$ does not depend on 
+    the index i.
+    We take $x_{n-1,0} + x_{n-1,4}$, since we omitted the last element (thus $x_{n-1,4} = 0$) 
+    to ensure that the weight has absolute value at most 1.*)\<close>
     define w where "w = x$((n-1)*5)"
-  (*This is the weight of the solution, since $x_{i,0} + x_{i,2}$ does not depend on the index i.
-    We take $x_{n-1,0} + x_{n-1,2}$, since we set $x_{n-1,2} = 0$ to ensure that the weight has
-    absolute value at most 1.*)
-    
+
     have w_eq_02: "w = x$(i*5) + (if i<n-1 then x$(i*5+4) else 0)" if "i\<in>{0..<n}" for i
     proof -
       have "i\<le>n-1" using that by auto
@@ -1601,6 +1423,7 @@ proof (safe, goal_cases)
     have "\<bar>w\<bar> \<le> 1"  using xi_le_1[of "(n-1)*5"] \<open>n > 0\<close>
       unfolding w_def dim_vec_x_5n by auto
 
+text \<open>Rule out the all zero solution.\<close>
     moreover have "w\<noteq>0"
     proof (rule ccontr)
       assume "\<not> w \<noteq> 0"
@@ -1685,11 +1508,8 @@ proof (safe, goal_cases)
       then show False using 1(4) by auto
     qed
 
-
-(*I_def:  "I = {i\<in>{0..<length a}. x $ (5*i)\<noteq>0}"
-  w_def:  "w = x$((n-1)*5)"
-*)
-
+text \<open>Then we can deduce the wanted property for both cases $w=1$ and $w=-1$. 
+  The only differences between the two cases is the switch of signs.\<close>
     ultimately have "w=1 \<or> w = -1" by auto
     then consider (pos) "w=1" | (neg) "w=-1" by blast
     then show ?thesis
@@ -1873,7 +1693,7 @@ proof (safe, goal_cases)
       then show ?thesis unfolding n_def by auto
     qed
   qed
-  ultimately show ?case by auto
+  ultimately show ?case using \<open>length a > 0\<close> by auto
 qed
 
 

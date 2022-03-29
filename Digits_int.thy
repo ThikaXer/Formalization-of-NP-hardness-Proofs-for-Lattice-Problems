@@ -1,4 +1,4 @@
-theory Digits_2
+theory Digits_int
   imports Digits
 begin
 
@@ -152,97 +152,12 @@ proof -
         div_plus_div_distrib_dvd_left mod_mult_self3)
 qed
 
-(*
-lemma from_digits_digit:
-  assumes "\<bar>x\<bar> < base ^ n"
-  shows   "from_digits n (\<lambda>i. nat \<bar>digit x i\<bar>) = \<bar>x::int\<bar>"
-  using assms unfolding digit_altdef from_digits_altdef 
-proof (induction n arbitrary: x)
-  case 0
-  then show ?case by simp
-next
-  case (Suc n)
-  define x_less where "x_less = \<bar>x\<bar> mod base^n"
-  define x_n where "x_n = \<bar>x\<bar> div base^n"
-  have "x_less < base^n" 
-    using x_less_def base_pos mod_less_divisor[of "nat (base)^n" "nat \<bar>x\<bar>"]
-    by (metis Euclidean_Division.pos_mod_bound zero_less_power)
-  then have IH_x_less:
-    "(\<Sum>i<n. x_less div base ^ i mod base * base ^ i) = x_less" 
-    using Suc.IH sorry by simp
-  have "x_n < base" using \<open>x<base^Suc n\<close> 
-    by auto (metis less_mult_imp_div_less x_n_def)
-  then have "x_n mod base = x_n" by simp
-  have x_less_i_eq_x_i:"x mod base^n div base ^i mod base = 
-    x div base^i mod base" if "i<n" for i
-  proof -
-    have "x div base^i mod base = 
-          ((x div base^n) * base^n + x mod base^n) div base^i mod base"
-      using div_mult_mod_eq[of x "base^n"] by simp
-    also have "\<dots> = x mod base^n div base^i mod base" 
-      using div_distrib[where a="x div base^n" and b = "x mod base^n"]
-        that by auto
-    finally show ?thesis by simp
-  qed
-  have "x = (x_n mod base)*base^n + x_less" 
-    unfolding \<open>x_n mod base=x_n\<close> 
-    using x_n_def x_less_def div_mod_decomp by blast 
-  also have "\<dots> = (x div base^n mod base) * base^n + 
-                (\<Sum>i<n. x div base ^ i mod base * base ^ i)"
-    using IH_x_less x_less_def x_less_i_eq_x_i x_n_def by auto
-  finally show ?case using sum.atMost_Suc 
-    by (simp add: add.commute)
-qed
-
-text \<open>Stronger formulation of above lemma.\<close>
-lemma from_digits_digit': 
-  "from_digits n (\<lambda>i. nat \<bar>digit x i\<bar>) = \<bar>x\<bar> mod (base ^ n)"
-  unfolding from_digits_altdef digit_altdef 
-proof (induction n arbitrary: x)
-  case 0
-  then show ?case by simp
-next
-  case (Suc n)
-  define x_less where "x_less = x mod base^n"
-  define x_n where "x_n = x div base^n mod base"
-  have "x_less < base^n" using x_less_def base_pos 
-      mod_less_divisor by presburger
-  then have IH_x_less:
-    "(\<Sum>i<n. x_less div base ^ i mod base * base ^ i) = x_less" 
-    using Suc.IH by simp
-  have "x_n < base" using base_pos mod_less_divisor x_n_def 
-    by blast
-  then have "x_n mod base = x_n" by simp
-  have x_less_i_eq_x_i:"x mod base^n div base ^i mod base = 
-    x div base^i mod base" if "i<n" for i
-  proof -
-    have "x div base^i mod base = 
-      ((x div base^n) * base^n + x mod base^n) div base^i mod base"
-      using div_mult_mod_eq[of x "base^n"] by simp
-    also have "\<dots> = x mod base^n div base^i mod base" 
-      using div_distrib[where a="x div base^n" and b = "x mod base^n"] 
-        that by auto
-    finally show ?thesis by simp
-  qed
-  have "x mod base^Suc n = x_n*base^n + x_less" 
-    by (metis mod_mult2_eq mult.commute power_Suc2 x_less_def x_n_def)
-  also have "\<dots> = (x div base^n mod base) * base^n + 
-                (\<Sum>i<n. x div base ^ i mod base * base ^ i)"
-    using IH_x_less x_less_def x_less_i_eq_x_i x_n_def by auto
-  finally show ?case using sum.atMost_Suc 
-    by (simp add: add.commute)
-qed
-*)
-
 
 lemma(in digits) digits_eq_0:
   assumes "x = 0"
   shows "digit x i = 0"
 by (simp add: assms digit_altdef)
 end
-
-
-
 
 
 lemma split_digits_eq_zero:
@@ -260,7 +175,6 @@ next
   ultimately have False by auto
   then show ?thesis by auto
 qed
-
 
 
 lemma respresentation_in_basis_eq_zero:
