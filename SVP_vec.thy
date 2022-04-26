@@ -273,7 +273,7 @@ next
     proof (subst eigen_v, subst linf_norm_vec_Max,subst linf_norm_vec_Max, subst Max.boundedI, 
       goal_cases _ _ three)
     case (three b)
-      have dim_x_nonzero: "dim_vec x \<noteq> 0" using 3(3) by auto
+      have dim_x_nonzero: "dim_vec x \<noteq> 0" using 3(3) 3(2) by auto
       then have nonempty: "(\<exists>a\<in>{\<bar>x $ i\<bar> |i. i < dim_vec x}. 0 \<le> a)"
         using abs_ge_zero by blast
       have " \<bar>x $ i\<bar> \<le> Max (insert 0 {\<bar>x $ j\<bar> |j. j < dim_vec x})" 
@@ -286,14 +286,16 @@ next
     then show ?thesis using 3 by auto
   qed
   moreover have "v \<noteq> 0\<^sub>v (dim_vec v)" using 3(3) 
-  proof (subst eigen_v, safe) 
-    assume fst: "x \<noteq> 0\<^sub>v (dim_vec x)" 
-    assume snd: "?x = 0\<^sub>v (dim_vec v)"
+  proof (safe)
+    assume "0 < dim_vec a" 
+    assume "v = 0\<^sub>v (dim_vec v)"
+    have fst: "x \<noteq> 0\<^sub>v (dim_vec x)" using 3(4) by blast
+    have snd: "?x = 0\<^sub>v (dim_vec v)" using \<open>v = 0\<^sub>v (dim_vec v)\<close>  eigen_v by auto
     have "x$i = 0" if "i< dim_vec x" for i using snd
     by (smt (z3) add.commute dim_vec eigen_v index_map_vec(2) index_vec index_zero_vec(1) 
       of_int_eq_iff of_int_hom.hom_zero that 
       trans_less_add2)
-    then show False using fst by auto
+  then show False using fst by auto
   qed
   ultimately show ?case by blast
 qed
@@ -332,7 +334,8 @@ proof (cases "(\<Sum>i<dim_vec a. a$i) = 0")
     finally have "Max {\<bar>vec (dim_vec a) (\<lambda>i. k) $ i\<bar> |i. i < dim_vec a} = k" by blast
     then show ?thesis unfolding x_def linf_norm_vec_Max using \<open>k>0\<close> by auto 
   qed
-  ultimately show ?thesis using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def by auto
+  ultimately show ?thesis using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
+    by fastforce 
 next
   case False
   show ?thesis using assms unfolding reduce_svp_bhle_def gap_svp_def bhle_def
@@ -537,7 +540,7 @@ next
         using x_def z_def v_real_z  by auto
       then show ?thesis using 1 by auto
     qed
-    ultimately show ?case by blast
+    ultimately show ?case by force
   qed
 qed
 
