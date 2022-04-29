@@ -1,7 +1,6 @@
 theory Additional_Lemmas
 
 imports Main
-        "Jordan_Normal_Form.Matrix"
         infnorm
         Partition
         Lattice_int

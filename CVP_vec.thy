@@ -2,7 +2,6 @@ theory CVP_vec
 
 imports Main 
         "poly-reductions/Karp21/Reductions"
-        (*"poly-reducrions/Karp21/Three_Sat_To_Set_Cover"*)
         Lattice_int
         Subset_Sum
         infnorm
@@ -66,17 +65,10 @@ proof -
   then show ?thesis by (simp add: assms(1))
 qed
 
-
-
-
-
-
 lemma set_compr_elem: 
   assumes "finite A" "a\<in>A"
   shows "{f i | i. i\<in>A} = {f a} \<union> {f i | i. i\<in>A-{a}}"
 by (safe, use assms in \<open>auto\<close>)
-
-
 
 lemma Bx_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"

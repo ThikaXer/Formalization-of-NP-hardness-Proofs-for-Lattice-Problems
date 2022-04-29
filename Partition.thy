@@ -1,7 +1,6 @@
 theory Partition
 
 imports Main
-        "Jordan_Normal_Form.Matrix"
         "poly-reductions/Karp21/Reductions"
 
 begin

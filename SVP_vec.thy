@@ -2,8 +2,6 @@ theory SVP_vec
 
 imports BHLE
 
-
-
 begin
 
 text \<open>The reduction of SVP to CVP in $l_\infty$ norm\<close>
@@ -115,7 +113,7 @@ unfolding is_indep_def
 proof (safe, goal_cases)
 case (1 z)
   have dim_row_dim_vec: "dim_row (gen_svp_basis a k) = dim_vec z" 
-    using 1(2) unfolding gen_svp_basis_def by auto
+    using 1 unfolding gen_svp_basis_def by auto
   then have suc_dim_a_dim_z: "dim_vec z = dim_vec a + 1" unfolding gen_svp_basis_def by auto
   have alt1: "(real_of_int_mat (gen_svp_basis a k) *\<^sub>v z) $ i = 0" if "i< dim_vec a +1"for i 
     using 1(1) that unfolding gen_svp_basis_def by auto
@@ -158,6 +156,7 @@ case (1 z)
     by (metis discrete le_eq_less_or_eq verit_comp_simplify1(3))
   then show ?case by auto
 qed
+
 
 
 lemma insert_set_comprehension:
@@ -401,7 +400,12 @@ next
           using False atLeast0LessThan
           by (metis abs_sum_abs int_one_le_iff_zero_less not_less sum_abs zero_less_abs_iff)
         then have "2*k*(k+1)*(\<Sum>x<dim_vec a. \<bar>a $ x\<bar>) + 1 > k"
-          using \<open>k>0\<close> by force
+        proof -
+          have "2*(k+1)*(\<Sum>x<dim_vec a. \<bar>a $ x\<bar>)\<ge>1" using \<open>k>0\<close>
+            by (smt (verit, ccfv_SIG) int_distrib(2) sum_a_ge_1 zmult_zless_mono2)
+          then show ?thesis using \<open>k>0\<close>
+            by (smt (verit, best) pos_mult_pos_ge sum_a_ge_1)
+        qed
         moreover have "\<bar>?second\<bar> \<ge> \<bar>2*k*(k+1)*(\<Sum>x<dim_vec a. \<bar>a $ x\<bar>) + 1\<bar>"
           using \<open>\<bar>z $ dim_vec a\<bar> \<ge> 1\<close> 
           by (subst abs_mult) (simp add: lessThan_atLeast0 mult_le_cancel_left1)

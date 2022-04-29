@@ -1,7 +1,21 @@
 theory Digits_int
-  imports Digits
+  imports Complex_Main
 begin
 
+text \<open> First, we look at some useful lemmas for splitting sums. \<close>
+lemma split_sum_first_elt_less: assumes "n<m" 
+  shows "(\<Sum>i\<in>{n..<m}. f i) = f n + (\<Sum>i\<in>{Suc n ..<m}. f i)"
+  using sum.atLeast_Suc_lessThan assms by blast
+
+lemma split_sum_mid_less: assumes "i<(n::nat)"
+  shows "(\<Sum>j<n. f j) = (\<Sum>j<i. f j) + (\<Sum>j=i..<n. f j)"
+proof -
+  have "(\<Sum>j<n. f j) = (\<Sum>j\<in>{..<i} \<union> {i..<n}. f j)"
+    using \<open>i < n\<close> by (intro sum.cong) auto
+  also have "\<dots> = (\<Sum>j<i. f j) + (\<Sum>j=i..<n. f j)"
+    by (subst sum.union_disjoint) auto
+  finally show "(\<Sum>j<n. f j) = (\<Sum>j<i. f j) + (\<Sum>j=i..<n. f j)" .
+qed
 text \<open>In order to use representation of numbers in a basis \<open>base\<close> and to calculate the conversion 
 to and from integers, we introduce the following locale.\<close>
 locale digits =
@@ -45,9 +59,11 @@ fun digit :: "int \<Rightarrow> nat \<Rightarrow> int" where
 
 text \<open>Alternative definition using divisor and modulo:\<close>
 lemma digit_altdef: "digit x i = ( \<bar>x\<bar> div (base ^ i)) mod base"
-  by (induction x i rule: digit.induct, simp)
-     (smt (verit, best) Digits_2.digits.digit.simps(2) base_pos digits_axioms 
-      pos_imp_zdiv_neg_iff power_Suc zdiv_zmult2_eq zero_less_power)
+proof (induction x i rule: digit.induct)
+  case (2 x i)
+  show ?case by (subst digit.simps(2), subst 2) (smt (verit, ccfv_SIG) base_pos 
+        pos_imp_zdiv_neg_iff power.simps(2) zdiv_zmult2_eq zero_less_power)
+qed simp
 
 text \<open>Every digit must be smaller that the base.\<close>
 lemma digit_less_base: "digit x i < base"

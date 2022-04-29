@@ -1,11 +1,6 @@
 theory BHLE
 
 imports Main
-        "Jordan_Normal_Form.Matrix"
-        infnorm
-        Partition
-        Lattice_int
-        Digits_int
         Additional_Lemmas
 
 begin
@@ -1007,8 +1002,8 @@ text \<open>The first equation containing the $a_i$\<close>
           by (simp add: sum_distrib_left)
         finally show ?thesis unfolding M_def n_def by linarith
       qed
-      have **: "\<forall>i<5*n-1. \<bar>x $ i\<bar> \<le> 1" using 1(5)
-        by (metis dim_vec_x_5n ge_trans vec_index_le_linf_norm)
+      have **: "\<forall>i<5*n-1. \<bar>x $ i\<bar> \<le> 1" using 1(5) 
+        by (metis dim_vec_x_5n order_trans vec_index_le_linf_norm)
       have "(\<Sum>i<5*n-1. x $ i * a0 i) = 0 \<and> (\<Sum>i<5*n-1. x$i * (a0_rest i)) = 0"
         using split_eq_system[OF * ** sum_gen_bhle] by auto
       moreover have "(\<Sum>i<5*n-1. x $ i * a0 i) = (\<Sum>i<n. (x $ (i*5) + x $ (i*5+2)) * a!i)"
