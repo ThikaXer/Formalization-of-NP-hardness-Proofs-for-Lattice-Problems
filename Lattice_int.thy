@@ -55,6 +55,14 @@ lemma real_of_int_mat_mat:
   "real_of_int_mat (mat n m f) = mat n m (real_of_int \<circ> f)"
 by (auto simp add: real_of_int_mat_def)
 
+lemma real_of_int_mat_cols:
+"cols (real_of_int_mat A) = map real_of_int_vec (cols A)"
+by (simp add: list_eq_iff_nth_eq real_of_int_mat_def real_of_int_vec_def)
+
+lemma distinct_cols_real_of_int_mat:
+ "distinct (cols A) = distinct (cols (real_of_int_mat A))"
+by (smt (verit, best) cols_length distinct_conv_nth index_map_mat(3) nth_map 
+  of_int_hom.vec_hom_inj real_of_int_mat_cols real_of_int_mat_def real_of_int_vec_def)
 
 text \<open>Algebraic lattices are discrete additive subgroups of $\mathbb{R}^n$.
   Lattices can be represented by a basis, multiple bases can represent the same lattice.\<close>
@@ -214,113 +222,117 @@ proof -
   then show ?thesis using that by blast
 qed
 
+lemma span_mono:
+assumes "set_cols (A ::'a::comm_ring mat) \<subseteq> set_cols B" "dim_row A = dim_row B" 
+    "distinct (cols A)"
+shows "span A \<subseteq> span B"
+using assms proof (induction "card (set_cols B - set_cols A)" arbitrary: A B rule: less_induct)
+  case less
+  then show ?case unfolding span_def 
+  proof (safe, goal_cases)
+    case (1 _ z)
+    define nr where "nr = dim_row B"
+    define nc where "nc = dim_col B"
+    have 2: "B \<in> carrier_mat nr nc" unfolding nr_def nc_def by auto
+    have 3: "set (cols A) \<subseteq> set (cols B)" using less.prems(1) by auto
+    have 4: "z \<in> carrier_vec (length (cols A))" using 1(5)
+    by (metis carrier_vec_dim_vec cols_length)
+    have 5: "mat_of_cols nr (cols A) = A" 
+    by (metis less.prems(2) mat_of_cols_cols nr_def)
+    obtain zb where "A *\<^sub>v z = B *\<^sub>v zb" "dim_vec zb = dim_col B" 
+      using helper3[of B nr nc "cols A" z, OF 2 less.prems(3) 3 4] unfolding nc_def 5 by auto
+    then show ?case by auto
+  qed
+qed
+
 
 lemma is_indep_mono:
-assumes "set_cols B \<subseteq> set_cols A" "is_indep A"
+assumes "set_cols B \<subseteq> set_cols A" "is_indep A" "distinct (cols B)" "dim_row A = dim_row B"
 shows "is_indep B"
- sorry
-
-lemma spanning_subset_independent:
-assumes BA: "set_cols B \<subseteq> set_cols A" and iA: "is_indep A" and AsB:"set_cols A \<subseteq> span B" 
-shows "set_cols A = set_cols B"
-proof (intro antisym[OF _ BA] subsetI)
-  have iB: "is_indep B" using is_indep_mono[OF BA iA] .
-  fix v assume "v \<in> set_cols A"
-  with AsB have "v \<in> span B" by auto
-  then obtain zb where "v = B *\<^sub>v zb" "dim_vec zb = dim_col B" unfolding span_def by blast
-  let ?RB = "representation B v" and ?RA = "representation A v"
-  have "?RB v = 1"
-    unfolding representation_extend[OF iA \<open>v \<in> span B\<close> BA, symmetric] 
-    representation_basis[OF iA \<open>v \<in> A\<close>] by simp
-  then show "v \<in> set_cols B"
-    using representation_ne_zero[of B v v] by auto
+unfolding is_indep_def 
+proof (safe, goal_cases)
+  case (1 z)
+  define A' where "A' = real_of_int_mat A"
+  define B' where "B' = real_of_int_mat B"
+  define nr where "nr = dim_row A'"
+  define nc where "nc = dim_col A'"
+  have r: "nr = dim_row B'" unfolding nr_def A'_def B'_def using assms(4) by auto
+  have A': "A' \<in> carrier_mat nr nc" unfolding nr_def nc_def by auto
+  define ss where "ss = cols (B')"
+  have d: "distinct (cols B')" using assms(3) unfolding B'_def 
+  by (simp add: distinct_cols_real_of_int_mat) 
+  have sub: "set (cols B') \<subseteq> set (cols A')" unfolding A'_def B'_def
+  using assms(1) real_of_int_mat_cols by auto
+  from distinct_list_subset_nths[of "cols B'" "cols A'", OF d sub] 
+  obtain ids where ids: "distinct ids" "set ids \<subseteq> {..<length (cols A')}"
+    and ss: "ss = map ((!) (cols A')) ids"
+    using assms(1) set_cols ss_def by blast
+  let ?ls = " map ((!) (cols A')) (filter (\<lambda>i. i \<notin> set ids) [0..<length (cols A')])"
+  from subindex_permutation2[OF ids] obtain f where
+    f: "f permutes {..<length (cols A')}"
+    "cols A' = permute_list f (?ls @ ss)" using ss by blast
+  have f': "f permutes {..<nc}" using f(1) unfolding nc_def by simp
+  have *: "\<And>x. x \<in> set ?ls \<Longrightarrow> dim_vec x = nr" using A' by auto 
+  let ?cs1 = "(list_of_vec (0\<^sub>v (length ?ls) @\<^sub>v z))"
+  have z: "z \<in> carrier_vec (length ss)" unfolding ss_def using 1 
+  using B'_def carrier_dim_vec by auto
+  have "0\<^sub>v nr = B' *\<^sub>v z" using 1 unfolding B'_def r by auto
+  also have "\<dots> = mat_of_cols nr ss *\<^sub>v z" unfolding ss_def r by simp
+  also have "\<dots> = mat_of_cols nr (?ls @ ss) *\<^sub>v vec_of_list (?cs1)"
+    using helper2[OF z] * by (metis vec_list)
+  also have "... = mat_of_cols nr (permute_list f (?ls @ ss)) *\<^sub>v vec_of_list (permute_list f ?cs1)"
+    by (auto intro!: mat_of_cols_mult_mat_vec_permute_list[symmetric])
+       (metis cols_length f(1) f(2) length_append length_map length_permute_list,
+        use ss_def z in \<open>force\<close>)
+  also have "... =  A' *\<^sub>v vec_of_list (permute_list f ?cs1)" using f(2) 
+    by (simp add: nr_def)
+  finally have "A' *\<^sub>v vec_of_list (permute_list f ?cs1) = 0\<^sub>v nr" 
+  by presburger
+  then have zero: "vec_of_list (permute_list f ?cs1) = 0\<^sub>v nc" 
+  by (smt (verit, best) A'_def assms(2) carrier_vecD cols_length dim_vec_of_list f(2) 
+    index_append_vec(2) index_map_mat(2) index_map_mat(3) index_zero_vec(2) is_indep_def 
+    length_append length_list_of_vec length_permute_list nc_def nr_def real_of_int_mat_def z)
+  then have *:  "permute_list f ?cs1 ! i = 0" if "i<nc" for i
+    by (metis index_zero_vec(1) that vec_of_list_index)
+  then have "?cs1 ! (f i) = 0" if "i<nc" for i 
+    by (metis cols_length dim_vec_of_list f(1) index_zero_vec(2) length_permute_list nc_def 
+    permute_list_nth that zero)
+  then have "(\<lambda>i. ?cs1 ! (f i)) ` {..<nc} \<subseteq> {0}" by blast
+  then have "(\<lambda>i. ?cs1 ! i) ` (f `{..<nc}) \<subseteq> {0}" by blast
+  then have "(\<lambda>i. ?cs1 ! i) ` {..<nc} \<subseteq> {0}" using permutes_imp_bij[OF f'] 
+  by (metis cols_length f' length_map nc_def permutes_image)
+  then have *: "?cs1 ! i = 0" if "i<nc" for i using that by blast
+  then have "z $ i = 0" if "i<dim_vec z" for i using *[of "length ?ls + i"]
+  by (metis (no_types, lifting) add_diff_cancel_left' add_less_cancel_left dim_vec_of_list 
+    index_append_vec(2) index_zero_vec(2) length_list_of_vec length_permute_list  
+    list_of_vec_append not_add_less1 nth_append nth_list_of_vec that zero)
+  then show "z = 0\<^sub>v (dim_vec z)" 
+  by (metis eq_vecI index_zero_vec(1) index_zero_vec(2))
 qed
 
-proof -
-  have "set_cols A \<subseteq> set_cols B" sorry
-  then show ?thesis
-    using assms apply auto sorry
+
+
+lemma is_indep_distinct:
+assumes "is_indep A"
+shows "distinct (cols A)"
+proof (rule ccontr)
+  define nc where "nc = dim_col A"
+  define nr where "nr = dim_row A"
+  assume "\<not> distinct (cols A)"
+  then obtain i j where ij: "i \<noteq> j" "i<nc" "j<nc" "col A i = col A j"
+    unfolding nc_def by (metis cols_length cols_nth distinct_conv_nth)
+  have "(real_of_int_mat A) *\<^sub>v (unit_vec nc i - unit_vec nc j) = 0\<^sub>v nr"
+    by (smt (verit, ccfv_threshold) ij carrier_mat_triv col_dim col_map_mat col_unit_vec 
+      index_map_mat(2) index_map_mat(3) minus_cancel_vec mult_minus_distrib_mat_vec nc_def 
+      nr_def real_of_int_mat_def unit_vec_carrier)
+  moreover have "dim_vec (unit_vec nc i - unit_vec nc j) = nc" by simp
+  moreover have "(unit_vec nc i - unit_vec nc j) \<noteq> 0\<^sub>v nc" 
+  by (smt (z3) assms calculation(1) calculation(2) ij(1) ij(2) ij(3) index_minus_vec(1) 
+    index_minus_vec(2) index_unit_vec(1) index_zero_vec(1) is_indep_def nc_def nr_def)
+  ultimately have "\<not> is_indep A" unfolding is_indep_def
+  using nc_def nr_def by auto
+  then show False using assms by auto
 qed
-
-lemma nth_lin_combo:
-assumes "i < dim_row A" "dim_col A = dim_vec b"
-shows "(A *\<^sub>v b) $ i = (\<Sum>j=0..<dim_col A. A $$ (i,j) * b $ j)"
-using assms unfolding mult_mat_vec_def scalar_prod_def by auto
-
-lemma span_mono:
-assumes "set_cols A \<subseteq> set_cols B" "dim_row A = dim_row B"
-shows "span A \<subseteq> span B"
-sorry
-(*
-using assms proof (unfold span_def, safe, goal_cases)
-  case (1 x z)
-  show ?case 
-  proof (cases "dim_col A = 0")
-    case True
-    then have "A *\<^sub>v z = B *\<^sub>v (0\<^sub>v (dim_col B))" 
-      using "1"(5) assms(2) by auto
-    then show ?thesis by auto
-  next
-    case False
-(*    have "dim_row A = dim_row B" using assms
-    proof -
-      obtain i where i: "i<dim_col A" using False by auto
-      obtain j where j: "col A i = col B j" using set_cols_subset_col[OF assms i] by blast
-      have "dim_row A = dim_vec (col A i)" by auto
-      also have "\<dots> = dim_vec (col B j)" using j by auto
-      also have "\<dots> = dim_row B" by auto
-      finally show ?thesis by auto
-    qed*)
-    define get_index where "get_index = (\<lambda>a. THE i. col A i = a)"
-    define za where "za = vec (dim_col B) (\<lambda>i. if col B i \<in> set_cols A 
-      then z $ (get_index (col B i)) else 0)"
-    have "A *\<^sub>v z = B *\<^sub>v za" 
-    proof (subst eq_vecI[of "A *\<^sub>v z" "B *\<^sub>v za"], goal_cases)
-      case (1 i)
-      have "(B *\<^sub>v za) $ i = (\<Sum>ia = 0..<dim_col B. B $$ (i, ia) * za $ ia)" 
-        using "1" assms(2) nth_lin_combo za_def by fastforce
-      also have "\<dots> = (\<Sum>ia \<in> {0..<dim_col B}\<inter>{ia. col B ia \<in> set_cols A}. B $$ (i, ia) * za $ ia) 
-        + (\<Sum>ia \<in> {0..<dim_col B} - {ia. col B ia \<in> set_cols A}. B $$ (i, ia) * za $ ia)"
-        by (subst sum.Int_Diff[of _ _ "{ia. col B ia \<in> set_cols A}"], auto)
-      also have "\<dots> = (\<Sum>ia \<in> {0..<dim_col B}\<inter>{ia. col B ia \<in> set_cols A}. B $$ (i, ia) * za $ ia)"
-        unfolding za_def by auto
-      also have "\<dots> = (\<Sum>ia\<in>{0..<dim_col B} \<inter> {ia. col B ia \<in> set_cols A}.
-       (if ia \<in> {ia. col B ia \<in> set_cols A} then B $$ (i, ia) * z $ get_index (col B ia) else 0))"
-        unfolding za_def by auto
-      also have "\<dots> = (\<Sum>ia \<in> {0..<dim_col B}\<inter>{ia. col B ia \<in> set_cols A}. B $$ (i, ia) * 
-        z $ get_index (col B ia))"
-        by (subst sum.inter_restrict[symmetric], auto)
-      also have "\<dots> = (\<Sum>ib \<in> {ia. \<exists>j\<in>{0..<dim_col A}. col A j = col B ia}. 
-        B $$ (i, ib) * z $ (get_index (col B ib)))" 
-        (is "(\<Sum>ia \<in> ?S. ?f ia) = (\<Sum>ib \<in> ?T. ?g ib)") 
-      proof -
-        have "{0..<dim_col B}\<inter>{ia. col B ia \<in> set_cols A} = 
-          {ia. ia<dim_col B \<and> (\<exists>j\<in>{0..<dim_col A}. col A j = col B ia)}" sorry
-        then show ?thesis sorry by auto
-      qed
-(*(subst sum.reindex_bij_witness[where ?S = ?S and ?T = ?T and ?g = ?f and ?h = ?g], 
-        auto, goal_cases)
-        case (1 a)
-        then show ?case 
-        by (metis imageE set_cols set_cols_col)
-      next
-        case (2 b j)
-        then show ?case sledgehammer sorry
-      next
-        case (3 b j)
-        then show ?case sorry
-      qed
-*)
-
-      also have "\<dots> = (\<Sum>j<dim_col A. A $$ (i,j) * z $ j)"  sorry
-      also have "\<dots> = (A *\<^sub>v z) $ i" sorry
-      finally show ?case by auto
-    qed (use assms in \<open>auto\<close>)
-    then have "\<exists>za. A *\<^sub>v z = B *\<^sub>v za \<and> dim_vec za = dim_col B"  sorry
-    then show ?thesis sorry
-qed 
-*)
-
 
 lemma span_base:
 assumes "(a :: 'a :: {monoid_mult,semiring_0,zero_neq_one} vec) \<in> set_cols S"
@@ -332,6 +344,264 @@ proof -
     using col_unit_vec[OF \<open>i<dim_col S\<close>, symmetric] by auto
   then show ?thesis unfolding span_def by auto
 qed
+
+
+
+text \<open>Representing function\<close>
+
+
+definition representation :: "int mat \<Rightarrow> int vec \<Rightarrow> int vec \<Rightarrow> int"
+  where "representation B v =
+    (if is_indep B \<and> v \<in> (span B) then
+      SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols B) \<and>
+        B *\<^sub>v (vec (dim_col B) (\<lambda>i. f (col B i))) = v
+    else (\<lambda>b. 0))"
+
+lemma unique_representation:
+  assumes basis: "is_indep basis"
+    and in_basis: "\<And>v. f v \<noteq> 0 \<Longrightarrow> v \<in> set_cols basis" "\<And>v. g v \<noteq> 0 \<Longrightarrow> v \<in> set_cols basis"
+    and eq: "basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. f (col basis i))) = 
+            basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. g (col basis i)))"
+  shows "f = g"
+proof (rule ext, rule ccontr)
+  fix v assume ne: "f v \<noteq> g v" 
+  then have in_col: "v \<in> set_cols basis" using in_basis by metis
+  have "\<not> is_indep basis"
+    unfolding is_indep_def
+  proof (subst not_all, subst not_imp)
+    let ?x = "vec (dim_col basis) (\<lambda>i. (f (col basis i)- g (col basis i)))"
+    have  "\<exists>v\<in>set_cols basis. f v - g v \<noteq> 0" 
+      using ne in_col right_minus_eq by blast
+    then have ex: "\<exists>i<dim_col basis. f (col basis i) - g (col basis i) \<noteq> 0"
+      by (metis atLeastLessThan_iff imageE set_cols_col)
+    have "basis *\<^sub>v (?x) =
+          basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. f (col basis i))) - 
+          basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. g (col basis i)))"
+    proof -
+      have *: "?x = vec (dim_col basis) (\<lambda>i. f (col basis i)) - 
+        vec (dim_col basis) (\<lambda>i. g (col basis i))" unfolding minus_vec_def by auto
+      show ?thesis unfolding *
+      by (meson carrier_mat_triv mult_minus_distrib_mat_vec vec_carrier)
+    qed
+    then have "basis *\<^sub>v (?x) = 0\<^sub>v (dim_row basis)" using eq by auto
+    then have "real_of_int_mat basis *\<^sub>v (real_of_int_vec ?x) = 0\<^sub>v (dim_row basis)"
+      by (metis (full_types) carrier_mat_triv of_int_hom.mult_mat_vec_hom of_int_hom.vec_hom_zero 
+      real_of_int_mat_def real_of_int_vec_def vec_carrier)
+    moreover have "dim_vec ?x = dim_col basis" 
+    using dim_vec by blast
+    then have "dim_vec (real_of_int_vec ?x) = dim_col basis" by simp
+    moreover have "?x \<noteq> 0\<^sub>v (dim_col basis)" using ex
+    by (metis (no_types, lifting) index_vec index_zero_vec(1)) 
+    ultimately show "\<exists>x. (real_of_int_mat basis *\<^sub>v x = 0\<^sub>v (dim_row basis) \<and>
+         dim_vec x = dim_col basis) \<and> x \<noteq> 0\<^sub>v (dim_vec x)" 
+         using real_of_int_vec_def by auto
+  qed
+  with basis show False by auto
+qed
+
+lemma
+  shows representation_ne_zero: "\<And>b. representation basis v b \<noteq> 0 \<Longrightarrow> b \<in> set_cols basis"
+    and sum_nonzero_representation_eq:
+      "is_indep basis \<Longrightarrow> v \<in> span basis \<Longrightarrow> 
+      basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. representation basis v (col basis i))) = v"
+proof -
+  { assume basis: "is_indep basis" and v: "v \<in> span basis"
+    define p where "p f \<longleftrightarrow>
+      (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis) \<and> 
+      basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. f (col basis i))) = v" for f
+    obtain z where z: "basis *\<^sub>v z = v" "dim_vec z = dim_col basis"
+      using \<open>v \<in> span basis\<close> unfolding span_def by auto
+    define r where "r = (\<lambda>v. if (\<exists>i<dim_col basis. v = col basis i) 
+      then z$(SOME i. i<dim_col basis \<and> v = col basis i) else 0)"
+    then have "r (col basis i) = z$i" if "i<dim_col basis" for i 
+    proof -
+      have "z $ (SOME j. j<dim_col basis \<and> col basis ia = col basis j) = z $ i" 
+        if "i < dim_col basis"
+          "distinct (cols basis)"
+          "ia < dim_col basis"
+          "col basis i = col basis ia"
+        for ia
+      proof -
+        have "i = ia" using that 
+        by (metis cols_length cols_nth distinct_conv_nth)
+        obtain j where j: "j = (SOME j. j<dim_col basis \<and> col basis i = col basis j)" by blast
+        then have "j<dim_col basis" "col basis i = col basis j" 
+        by (smt (verit, best) \<open>i = ia\<close> someI_ex that(3))
+           (metis (mono_tags, lifting) j that(1) verit_sko_ex')
+        then have "i = j" using that
+        by (metis cols_length cols_nth distinct_conv_nth)
+        then show ?thesis unfolding j(1) 
+        using that(4) by auto
+      qed
+      then show ?thesis
+      unfolding r_def using that is_indep_distinct[OF basis] by auto
+    qed
+    then have "z = (vec (dim_col basis) (\<lambda>i. r (col basis i)))"
+       using z(2) by auto 
+    then have *: 
+      "basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. r (col basis i))) = v"
+      using z by auto
+    define f where "f b = (if b \<in> set_cols basis then r b else 0)" for b
+    have "p f"
+      using * unfolding p_def f_def 
+      by (smt (verit, best) cols_length cols_nth dim_vec eq_vecI index_vec nth_mem set_cols)
+    have *: "representation basis v = Eps p" 
+      by (simp add: p_def[abs_def] representation_def basis v)
+    from someI[of p f, OF \<open>p f\<close>] have "p (representation basis v)"
+      unfolding * . }
+  note * = this
+
+  show "representation basis v b \<noteq> 0 \<Longrightarrow> b \<in> set_cols basis" for b
+    using * by (cases "is_indep basis \<and> v \<in> span basis") (auto simp: representation_def)
+
+  show "is_indep basis \<Longrightarrow> v \<in> span basis \<Longrightarrow> 
+    basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. representation basis v (col basis i))) = v"
+    using * by auto
+qed
+
+lemma representation_eqI:
+  assumes basis: "is_indep basis" and b: "v \<in> span basis"
+    and ne_zero: "\<And>b. f b \<noteq> 0 \<Longrightarrow> b \<in> set_cols basis"
+    and eq: "basis *\<^sub>v (vec (dim_col basis) (\<lambda>i. f (col basis i))) = v"
+  shows "representation basis v = f"
+  by (rule unique_representation[OF basis])
+     (auto simp: representation_ne_zero 
+      sum_nonzero_representation_eq[OF basis b] ne_zero eq simp del: set_cols)
+
+lemma representation_extend:
+  assumes basis: "is_indep basis" and v: "v \<in> span basis'" 
+    and basis': "set_cols basis' \<subseteq> set_cols basis" and d: "dim_row basis = dim_row basis'"
+    and dc: "distinct (cols basis')" 
+  shows "representation basis v = representation basis' v"
+proof (rule representation_eqI[OF basis])
+  show v': "v \<in> span basis" using span_mono[OF basis' d[symmetric] dc] v by auto
+  have *: "is_indep basis'" using is_indep_mono[OF basis' basis dc d] by (auto)
+  show "representation basis' v b \<noteq> 0 \<Longrightarrow> b \<in> set_cols basis" for b
+    using representation_ne_zero basis' by auto
+  have dim_row: "dim_row basis' = dim_row basis"
+    by (metis "*" Lattice_int.sum_nonzero_representation_eq basis dim_mult_mat_vec v v')
+  show "basis *\<^sub>v vec (dim_col basis) (\<lambda>i. Lattice_int.representation basis' v (col basis i)) = v "
+  proof -
+    have not_in': "representation basis' v b = 0" if "b \<notin> set_cols basis'" for b
+    using Lattice_int.representation_ne_zero that by blast
+    have "basis *\<^sub>v vec (dim_col basis) (\<lambda>i. Lattice_int.representation basis' v (col basis i)) = 
+    basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. Lattice_int.representation basis' v (col basis' i))"
+    (is "?left = ?right")
+    proof (subst eq_vecI[of ?left ?right, symmetric], goal_cases)
+      case (1 i)
+      define f where 
+        "f = (\<lambda>basis k. row basis i $ k * (Lattice_int.representation basis' v (col basis k)))"
+      have **: "(\<Sum>k = 0..<dim_col basis. f basis k) =
+      (\<Sum>k = 0..<dim_col basis'. f basis' k)"
+      proof -
+        have lt: "dim_col basis' \<le> dim_col basis" using basis' dc is_indep_distinct[OF basis]
+          by (metis List.finite_set card_mono cols_length distinct_card set_cols)
+        have "l < dim_col basis' \<Longrightarrow> col basis' l = col basis x \<Longrightarrow> x < dim_col basis" for l x
+           sorry
+        have "(\<Sum>k = 0..<dim_col basis. f basis k) =
+          (\<Sum>k \<in> {0..<dim_col basis}-{k. \<exists>l. l<dim_col basis' \<and> col basis' l = col basis k}. 
+            f basis k) +
+          (\<Sum>k \<in> {k. \<exists>l. l<dim_col basis' \<and> col basis' l = col basis k}. f basis k)" 
+        apply (subst sum.subset_diff[of "{k. \<exists>l. l<dim_col basis' \<and> col basis' l = col basis k}"])
+        apply (auto simp add: lt basis')
+  apply (subst sum.subset_diff[of ], auto) sorry
+        have "f basis k = 0" if "k \<in> {dim_col basis'..<dim_col basis}" for k unfolding f_def
+          using not_in'   sorry
+        show ?thesis sorry
+      qed
+      have "row basis i \<bullet> vec (dim_col basis)
+            (\<lambda>j. Lattice_int.representation basis' v (col basis j)) = 
+            row basis' i \<bullet> vec (dim_col basis')
+            (\<lambda>j. Lattice_int.representation basis' v (col basis' j))" 
+      unfolding scalar_prod_def using ** unfolding f_def
+        by force
+      then show ?case unfolding mult_mat_vec_def
+        using "1" dim_row by force 
+    qed (use dim_row in \<open>auto\<close>)
+    then show ?thesis
+    using sum_nonzero_representation_eq[OF * v] by auto
+  qed
+qed
+
+lemma representation_basis:
+  assumes basis: "is_indep basis" and b: "b \<in> set_cols basis"
+  shows "representation basis b = (\<lambda>v. if v = b then 1 else 0)"
+proof (rule unique_representation[OF basis])
+  show "representation basis b v \<noteq> 0 \<Longrightarrow> v \<in> set_cols  basis" for v
+    using representation_ne_zero .
+  show "(if v = b then 1 else 0) \<noteq> 0 \<Longrightarrow> v \<in> set_cols basis" for v
+    using b by (cases "v = b") (auto simp: b)
+  have *: "{v. (if v = b then 1 else 0::int) \<noteq> 0} = {b}"
+    by auto
+  obtain j where j: "col basis j = b" "j<dim_col basis"
+  by (metis atLeastLessThan_iff b imageE set_cols_col)
+  have dis: "distinct (cols basis)" using basis is_indep_distinct by simp 
+  have unit: "vec (dim_col basis) (\<lambda>i. if col basis i = b then 1 else 0) = 
+    unit_vec (dim_col basis) j" (is "?l = ?r")
+  proof (subst eq_vecI[of ?l ?r], goal_cases)
+    case (1 i)
+    then show ?case using dis j 
+    by (smt (verit, best) cols_length cols_nth dim_vec distinct_conv_nth index_unit_vec(1) 
+      index_vec)
+  qed  auto
+  show "basis *\<^sub>v vec (dim_col basis) (\<lambda>i. Lattice_int.representation basis b (col basis i)) =
+    basis *\<^sub>v vec (dim_col basis) (\<lambda>i. if col basis i = b then 1 else 0)"
+    using * sum_nonzero_representation_eq[OF basis span_base[OF b]] unfolding unit 
+    by (subst col_unit_vec, simp add: j, unfold j(1), simp)
+qed
+
+
+
+(*
+definition embed_rep:
+"embed_rep A B v = vec (dim_col B) (\<lambda>i. if (\<exists>j. col A j = col B i) 
+  then v $ (THE j. col A j = col B i) else 0)"
+
+
+lemma embed_unit_vec:
+"embed_rep A B (unit_vec (dim_col A) i) = unit_vec (dim_col B) (THE j. col A i = col B j)"
+sorry
+
+
+lemma embed_unit_vec_I:
+assumes "dim_vec z = dim_col A" "embed_rep A B z = unit_vec (dim_col B) i" "i< dim_col B"
+shows "\<exists>j. z = unit_vec (dim_col A) j"
+oops
+
+lemma embed_rep_eq:
+assumes "set_cols A \<subseteq> set_cols B" "is_indep A" "dim_vec z = dim_col A"
+shows "A *\<^sub>v z = B *\<^sub>v (embed_rep A B z)"
+oops
+*)
+lemma mat_mult_eq_vec_eq:
+assumes "A *\<^sub>v v = A *\<^sub>v w" "dim_vec v = dim_col A" "dim_vec w = dim_col A"
+  "is_indep A"
+shows "v = w"
+oops
+
+lemma spanning_subset_independent:
+assumes BA: "set_cols B \<subseteq> set_cols A" and iA: "is_indep A" and AsB:"set_cols A \<subseteq> span B" 
+  and d: "distinct (cols B)" and dr: "dim_row A = dim_row B"
+shows "set_cols A = set_cols B"
+proof (intro antisym[OF _ BA] subsetI)
+  have iB: "is_indep B" using is_indep_mono[OF BA iA d dr] .
+  fix v assume "v \<in> set_cols A"
+  with AsB have "v \<in> span B" by auto
+  let ?RB = "representation B v" and ?RA = "representation A v"
+  have "?RB v = 1"
+    unfolding representation_extend[OF iA \<open>v \<in> span B\<close> BA, symmetric] 
+      representation_basis[OF iA \<open>v \<in> set_cols A\<close>] by simp
+  then show "v \<in> set_cols B"
+    using representation_ne_zero[of B v v] by auto
+qed
+
+
+lemma nth_lin_combo:
+assumes "i < dim_row A" "dim_col A = dim_vec b"
+shows "(A *\<^sub>v b) $ i = (\<Sum>j=0..<dim_col A. A $$ (i,j) * b $ j)"
+using assms unfolding mult_mat_vec_def scalar_prod_def by auto
+
+
 
 
 lemma in_span_insert:
@@ -481,10 +751,7 @@ assumes "(x :: 'a ::comm_ring vec) \<in> span S" "y \<in> span (insert_col S x)"
 shows "y \<in> span S"
 using Lattice_int.span_redundant assms by blast
 
-lemma is_indep_distinct:
-assumes "is_indep A"
-shows "distinct (cols A)"
- sorry
+
 
 lemma delet_col_not_in_set_cols:
 assumes "dim_vec b = dim_row T"
