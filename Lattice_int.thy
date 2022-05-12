@@ -459,6 +459,13 @@ proof -
     using * by auto
 qed
 
+lemma sum_nonzero_representation_eq':
+assumes "is_indep basis" "v \<in> span basis" 
+    "B = mat_of_cols (dim_row basis) (filter (\<lambda>b. representation basis v b\<noteq>0) (cols basis))" 
+shows "B *\<^sub>v (vec (dim_col B) (\<lambda>i. representation basis v (col B i))) = v"
+oops
+
+
 lemma representation_eqI:
   assumes basis: "is_indep basis" and b: "v \<in> span basis"
     and ne_zero: "\<And>b. f b \<noteq> 0 \<Longrightarrow> b \<in> set_cols basis"
@@ -484,72 +491,187 @@ proof (rule representation_eqI[OF basis])
   proof -
     have not_in': "representation basis' v b = 0" if "b \<notin> set_cols basis'" for b
     using Lattice_int.representation_ne_zero that by blast
-    have eq_r: "representation basis' v (col basis i) = representation basis v (col basis i)"
-      if "i<dim_col basis" for i
-    proof -
-      have 1: "representation basis' v = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis') \<and>
+    let ?vec = "vec (dim_row basis) (\<lambda>i. \<Sum>ia = 0..<dim_vec
+        (vec (dim_col basis) (\<lambda>i. Lattice_int.representation basis' v (col basis i))).
+         row basis i $ ia * vec (dim_col basis) 
+            (\<lambda>i. Lattice_int.representation basis' v (col basis i)) $ ia)"
+    have dim_v: "dim_vec v = dim_row basis" 
+    using Lattice_int.span_def dim_row v by force
+    have "v= ?vec"
+    proof (subst eq_vecI[of v ?vec], goal_cases)
+      case (1 i)
+      obtain ids where ids: "distinct ids" "set ids \<subseteq> {..<length (cols basis)}"
+        and ss: "cols basis' = map ((!) (cols basis)) ids" 
+      using distinct_list_subset_nths[OF dc, of "cols basis"] basis' set_cols by blast
+      define ls where "ls = map ((!) (cols basis)) 
+        (filter (\<lambda>i. i \<notin> set ids) [0..<length (cols basis)])"
+      from subindex_permutation2[OF ids] obtain p where
+        p: "p permutes {..<length (cols basis)}"
+        "cols basis = permute_list p (ls @ (cols basis'))" unfolding ls_def using ss by metis
+      then have p_i: "col basis i = (ls @ (cols basis')) ! (p i)" if "i<length (cols basis)" for i
+        by (metis cols_length cols_nth length_permute_list permute_list_nth that)
+      have len_ls: "length ls \<le> length (cols basis)" 
+      by (metis length_append length_permute_list linorder_not_less not_add_less1 p(2))
+      have in_ls: "col basis j = ls ! (p j)" if "j \<in> p -` {0..<length ls}" for j
+        using p_i 
+        by (metis atLeastLessThan_upt len_ls lessThan_atLeast0 lessThan_iff lessThan_subset_iff 
+          nth_append p(1) permutes_in_image subset_code(1) that vimageE)
+      have not_in_ls: "col basis j = (cols basis') ! (p j - length ls)" 
+        if "j \<in> p -` {length ls..<length (cols basis)}" for j
+      proof -
+        have "(ls @ (cols basis')) ! (p j) = (cols basis') ! (p j - length ls)" using that 
+        by (meson atLeastLessThan_iff leD nth_append vimage_eq)
+        then show ?thesis using p_i[of j] that 
+        by (metis (mono_tags, lifting) atLeastLessThan_iff lessThan_iff p(1) permutes_def vimageE)
+      qed
+      have distinct: "distinct (cols basis)" using is_indep_distinct[OF basis] .
+
+      have ls_in_basis: "set ls \<subseteq> set_cols basis" unfolding set_cols ls_def 
+        by (auto, metis cols_length cols_nth nth_mem)
+      have ls_not_in_basis': "(set ls) \<inter> (set_cols basis') = {}" 
+      proof (subst disjoint_iff, intro allI, intro impI)
+        fix x assume "x \<in> set ls"
+        then obtain j where j: "col basis j = x" using ls_in_basis 
+        by (metis imageE set_cols_col subsetD)
+        then have "j \<notin> set ids"using \<open>x\<in>set ls\<close> unfolding ls_def
+        by (smt (verit, del_insts) atLeastLessThan_iff atLeast_upt cols_length cols_nth distinct 
+          distinct_conv_nth ids(2) imageE list.set_map mem_Collect_eq set_filter set_upt subsetD)
+        then show "x \<notin> set_cols basis'" unfolding set_cols ss j[symmetric] 
+        by (smt (verit, ccfv_threshold) \<open>x \<in> set ls\<close> atLeast_upt distinct distinct_conv_nth ids(2) 
+          in_set_conv_nth j length_map lessThan_iff ls_def mem_Collect_eq nth_map nth_mem 
+          set_filter subsetD)
+      qed
+
+      have rep: "representation basis' v = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis') \<and>
              basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. f (col basis' i)) = v) "
         unfolding representation_def using \<open>is_indep basis'\<close> \<open>v\<in>span basis'\<close> by auto
-      have 2: "representation basis v = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis) \<and>
-             basis *\<^sub>v vec (dim_col basis) (\<lambda>i. f (col basis i)) = v) "
-        unfolding representation_def using \<open>is_indep basis\<close> \<open>v\<in>span basis\<close> by auto
-      obtain f' where some_f': "f' = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis') \<and>
-             basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. f (col basis' i)) = v)" by blast
-      then have f': "(\<forall>v. f' v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis')"
-             "basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. f' (col basis' i)) = v"
-        using "1" not_in' apply auto[1] 
-        by (metis "*" "1" Lattice_int.sum_nonzero_representation_eq some_f' v)
-      obtain f where some_f: "f = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis) \<and>
-             basis *\<^sub>v vec (dim_col basis) (\<lambda>i. f (col basis i)) = v)" by blast
-      then have f: "(\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis)"
-             "basis *\<^sub>v vec (dim_col basis) (\<lambda>i. f (col basis i)) = v"
-        apply (metis "2" Lattice_int.representation_ne_zero) 
-        by (metis "2" Lattice_int.sum_nonzero_representation_eq basis some_f v')
-      have "f' (col basis i) = f (col basis i)" using f f' 
-      proof -
-        show ?thesis sorry
+      then obtain f where some_f: "f = (SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis') \<and>
+         basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. f (col basis' i)) = v)" by blast
+      then have f: "\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols basis'" 
+        "basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. f (col basis' i)) = v" 
+        apply (metis not_in' rep)
+        by (metis "*" Lattice_int.sum_nonzero_representation_eq rep some_f v)
+      then have rep_f: "representation basis' v = f" using rep some_f by auto
+      have not_in_f: "f b = 0" if "b \<notin> set_cols basis' " for b using not_in'
+        using f(1) that by blast
+      have f_ls_0: "f (ls ! j) = 0" if "j<length ls" for j 
+        apply (subst not_in_f) using ls_not_in_basis' nth_mem that by auto
 
-      qed
-      then show ?thesis unfolding 1 2 some_f some_f' by auto
-    qed
-    have "basis *\<^sub>v vec (dim_col basis) (\<lambda>i. representation basis' v (col basis i)) = 
-    basis' *\<^sub>v vec (dim_col basis') (\<lambda>i. representation basis' v (col basis' i))"
-    (is "?left = ?right") using eq_r sorry
-(*
-    proof (subst eq_vecI[of ?left ?right, symmetric], goal_cases)
-      case (1 i)
-      define f where 
-        "f = (\<lambda>basis k. row basis i $ k * (representation basis' v (col basis k)))"
-      have **: "(\<Sum>k = 0..<dim_col basis. f basis k) =
-      (\<Sum>k = 0..<dim_col basis'. f basis' k)"
+      have "?vec $ i = vec (dim_vec v) (\<lambda>i. \<Sum>ia = 0..<dim_col basis.
+             row basis i $ ia * vec (dim_col basis) (\<lambda>j. f (col basis j)) $ ia) $ i"
+        using dim_v[symmetric] rep_f by auto 
+      also have "\<dots> = (\<Sum>ia = 0..<dim_col basis.
+             row basis i $ ia * vec (dim_col basis) (\<lambda>j. f (col basis j)) $ ia)"
+        using \<open>i<dim_vec v\<close> by auto
+      also have "\<dots> = (\<Sum>ia = 0..<length (cols basis). basis $$ (i, ia) * (f (col basis ia)))"
+        using "1" dim_v by force
+      also have "\<dots> = (\<Sum>ia \<in> p -` {0..<length (cols basis)}. 
+        (col basis ia $ i) * (f (col basis ia)))"
+        using "1" dim_v p(1) by (simp add: atLeast0LessThan permutes_vimage)
+      also have "\<dots> = (\<Sum>ia \<in> p -` {0..<length ls} \<union> p -` {length ls..<length (cols basis)}. 
+        (col basis ia $ i) * (f (col basis ia)))"
+        by (metis (no_types, lifting) bot_nat_0.extremum ivl_disj_un_two(3) len_ls vimage_Un)
+      also have "\<dots> = (\<Sum>ia \<in> p -` {0..< length ls}. (col basis ia $ i) * (f (col basis ia))) + 
+        (\<Sum>ia \<in> p -` {length ls..<length (cols basis)}. (col basis ia $ i) * (f (col basis ia)))"
+      proof (subst sum.union_disjoint, goal_cases)
+        case 1 then show ?case 
+        by (metis (no_types, lifting) atLeast_upt len_ls lessThan_subset_iff p(1) 
+          permutes_vimage set_upt subset_eq_atLeast0_lessThan_finite vimage_mono)
+      next
+        case 2 then show ?case 
+        by (metis (no_types, lifting) atLeast0LessThan diff_is_0_eq' diff_le_self 
+          finite_nat_iff_bounded ivl_subset length_map length_upt map_nth p(1) permutes_vimage 
+          vimage_mono)
+      qed auto
+      also have "\<dots> = (\<Sum>ia \<in> {0..<length (cols basis')}. 
+            (col basis' (ia) $ i) * (f (col basis' (ia))))"
       proof -
-        have lt: "dim_col basis' \<le> dim_col basis" using basis' dc is_indep_distinct[OF basis]
-          by (metis List.finite_set card_mono cols_length distinct_card set_cols)
-        have "(\<Sum>k = 0..<dim_col basis. f basis k) =
-          (\<Sum>k \<in> {0..<dim_col basis}-{k. k<dim_col basis \<and> 
-            (\<exists>l. l<dim_col basis' \<and> col basis' l = col basis k)}. f basis k) +
-          (\<Sum>k \<in> {k. k<dim_col basis \<and> (\<exists>l. l<dim_col basis' \<and> col basis' l = col basis k)}. 
-          f basis k)" 
-        by (subst sum.subset_diff[of 
-          "{k. k<dim_col basis \<and> (\<exists>l. l<dim_col basis' \<and> col basis' l = col basis k)}"])
-           (auto simp add: lt basis')
-        have "f basis k = 0" if "k \<in> {dim_col basis'..<dim_col basis}" for k unfolding f_def
-          using not_in'   sorry
-        show ?thesis sorry
+        have "(\<Sum>ia \<in> p -` {0..< length ls}. (col basis ia $ i) * (f (col basis ia))) =
+              (\<Sum>ia \<in> p -` {0..< length ls}. (ls ! (p ia) $ i) * (f (ls ! (p ia))))"
+          using in_ls by force
+        moreover have "\<dots> = (\<Sum>ia \<in> {0..< length ls}. (ls ! ia $ i) * (f (ls ! ia)))" 
+        proof -
+          have inj: "inj_on p (p -` {0..<length ls})" 
+            by (metis inj_onI p(1) permutes_def)
+          have "p ` p -` {0..<length ls} = {0..<length ls}" 
+          by (metis p(1) permutes_def surj_def surj_image_vimage_eq)
+          then show ?thesis using sum.reindex[OF inj,of "(\<lambda>j. ls ! j $ i * f (ls ! j))", symmetric]
+             unfolding comp_def by auto
+        qed
+        moreover have "\<dots> = 0"  by (simp add: f_ls_0)
+        ultimately have "(\<Sum>ia \<in> p -` {0..< length ls}. (col basis ia $ i) * (f (col basis ia)))
+           = 0" by auto
+
+        moreover have "(\<Sum>ia \<in> p -` {length ls..<length (cols basis)}. (col basis ia $ i) * 
+            (f (col basis ia))) = 
+          (\<Sum>ia \<in> p -` {length ls..<length (cols basis)}. (col basis' (p ia -length ls) $ i) * 
+            (f (col basis' (p ia -length ls))))"
+        proof -
+          have "(col basis ia $ i) * (f (col basis ia)) = (col basis' (p ia -length ls) $ i) * 
+            (f (col basis' (p ia -length ls)))" if "ia \<in> p -` {length ls..<length (cols basis)}"
+          for ia  using not_in_ls[OF that] 
+          by (metis add_diff_cancel_left' atLeastLessThan_iff cols_length cols_nth diff_less_mono 
+            length_append length_permute_list p(2) that vimageD)
+          then show ?thesis by simp
+        qed
+        moreover have "\<dots> = (\<Sum>ia \<in> {length ls..<length (cols basis)}. (col basis' (ia -length ls) $ i) * 
+            (f (col basis' (ia -length ls))))" 
+        proof -
+          have inj: "inj_on p (p -` {length ls..<length (cols basis)})" 
+            by (metis inj_onI p(1) permutes_def)
+          have "p ` p -` {length ls..<length (cols basis)} = {length ls..<length (cols basis)}" 
+          by (metis p(1) permutes_def surj_def surj_image_vimage_eq)
+          then show ?thesis using sum.reindex[OF inj,of "(\<lambda>j. col basis' (j - length ls) $ i * 
+            f (col basis' (j - length ls)))", symmetric]
+             unfolding comp_def by auto
+        qed
+        moreover have "\<dots> = (\<Sum>ia \<in> {length ls..<length ls + length (cols basis')}. 
+            (col basis' (ia -length ls) $ i) * (f (col basis' (ia -length ls))))"
+          by (simp add: p(2)) 
+        moreover have "\<dots> = (\<Sum>ia \<in> {0..<length (cols basis')}. 
+            (col basis' (ia) $ i) * (f (col basis' (ia))))" 
+        proof -
+          have inj: "inj_on (\<lambda>j. j-length ls) {length ls..<length ls + length (cols basis')}" 
+            using inj_on_diff_nat by fastforce
+          have "x \<in> (\<lambda>x. x - length ls) ` {length ls..<length ls + dim_col basis'}" 
+            if "x < dim_col basis'" for x using that
+            by (metis add_diff_cancel_left' atLeastLessThan_iff image_eqI linorder_not_less 
+              nat_add_left_cancel_less not_add_less1)
+          then have "(\<lambda>j. j - length ls) ` {length ls..<length ls + length (cols basis')} = 
+            {0..<length (cols basis')}" 
+            by auto
+          then show ?thesis using sum.reindex[OF inj, 
+            of "(\<lambda>ia. col basis' ia $ i * f (col basis' ia))", symmetric]
+             unfolding comp_def by auto
+        qed
+        ultimately show ?thesis by auto
       qed
-      have "row basis i \<bullet> vec (dim_col basis)
-            (\<lambda>j. Lattice_int.representation basis' v (col basis j)) = 
-            row basis' i \<bullet> vec (dim_col basis')
-            (\<lambda>j. Lattice_int.representation basis' v (col basis' j))" 
-      unfolding scalar_prod_def using ** unfolding f_def
-        by force
-      then show ?case unfolding mult_mat_vec_def
-        using "1" dim_row by force 
-    qed (use dim_row in \<open>auto\<close>)
-*)
-    then show ?thesis using sum_nonzero_representation_eq[OF * v] by auto
+
+      also have "\<dots> = (\<Sum>ia \<in> {0..<length (cols basis')}. 
+          (basis' $$ (i, ia)) * (f (col basis' (ia))))" 
+          using "1" dim_row dim_v by auto
+      also have "\<dots> = (\<Sum>ia \<in> {0..<length (cols basis')}. 
+          (row basis' i $ ia) * (f (col basis' (ia))))" 
+          using "1" dim_row dim_v by force 
+      also have "\<dots> = (\<Sum>ia \<in> {0..<length (cols basis')}. 
+          (row basis' i $ ia) * vec (dim_col basis') (\<lambda>j. f (col basis' j)) $ ia)" by force
+      also have "\<dots> = (row basis' i) \<bullet> vec (dim_col basis') (\<lambda>j. f (col basis' j))" 
+      by (simp add: scalar_prod_def)
+      also have "\<dots> = vec (dim_vec v) (\<lambda>i. (row basis' i) \<bullet> 
+        vec (dim_col basis') (\<lambda>j. f (col basis' j))) $ i" by (simp add: "1")
+      also have "\<dots> = (basis' *\<^sub>v vec (dim_col basis') (\<lambda>j. f (col basis' j))) $ i" 
+        unfolding mult_mat_vec_def using d dim_v by presburger
+      also have "\<dots> = v $ i" using f(2) by blast
+      finally have "?vec $ i = v $ i" by blast
+      then show ?case by auto
+    next
+      case (2)
+      then show ?case using dim_v by auto
+    qed (auto)
+    then show ?thesis unfolding mult_mat_vec_def scalar_prod_def by auto
   qed
 qed
+
 
 lemma representation_basis:
   assumes basis: "is_indep basis" and b: "b \<in> set_cols basis"
@@ -617,7 +739,15 @@ by (simp add: insert_col)
 lemma dim_col_delete_col:
 assumes "a \<in> set_cols S" "distinct (cols S)" "dim_vec a = dim_row S" 
 shows "dim_col (delete_col S a) = dim_col S - 1"
-sorry
+proof -
+  have *: "{x. x \<noteq> a} \<inter> set (cols S) = set (cols S) - {a}" by fastforce
+  have "length (filter (\<lambda>x. x \<noteq> a) (cols S)) = length (cols S) - 1" 
+    unfolding distinct_length_filter[OF \<open>distinct (cols S)\<close>] * 
+    by (metis assms(1) assms(2) card_Diff_singleton distinct_card set_cols)
+  then have "length (cols (delete_col S a)) = length (cols S) - 1" 
+    unfolding delete_col by auto
+  then show ?thesis by (metis cols_length)
+qed
 
 lemma dim_row_delete_col:
   "dim_row (delete_col T b) = dim_row T"
