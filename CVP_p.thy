@@ -41,20 +41,20 @@ definition gap_cvp :: "(int_lattice \<times> int vec \<times> real) set" where
 
 text \<open>Reduction function for Subset Sum to CVP in euclidean norm\<close>
 
-definition gen_basis_2 :: "int vec \<Rightarrow> int mat" where
-  "gen_basis_2 as = mat (dim_vec as + 1) (dim_vec as) (\<lambda> (i, j). if i = 0 then as$j 
+definition gen_basis_p :: "int vec \<Rightarrow> int mat" where
+  "gen_basis_p as = mat (dim_vec as + 1) (dim_vec as) (\<lambda> (i, j). if i = 0 then as$j 
     else (if i = j + 1 then 2 else 0))"
 
 
-definition gen_t_2 :: "int vec \<Rightarrow> int \<Rightarrow> int vec" where
-  "gen_t_2 as s = vec (dim_vec as + 1) ((\<lambda> i. 1)(0:= s))"
+definition gen_t_p :: "int vec \<Rightarrow> int \<Rightarrow> int vec" where
+  "gen_t_p as s = vec (dim_vec as + 1) ((\<lambda> i. 1)(0:= s))"
 
 
 
-definition reduce_cvp_subset_sum_2 :: 
+definition reduce_cvp_subset_sum_p :: 
   "((int vec) * int) \<Rightarrow> (int_lattice * (int vec) * real)" where
-  "reduce_cvp_subset_sum_2 \<equiv> (\<lambda> (as,s).
-    (gen_lattice (gen_basis_2 as), gen_t_2 as s, root p (dim_vec as)))"
+  "reduce_cvp_subset_sum_p \<equiv> (\<lambda> (as,s).
+    (gen_lattice (gen_basis_p as), gen_t_p as s, root p (dim_vec as)))"
 
 
 text \<open>Lemmas for Proof\<close>
@@ -88,7 +88,7 @@ by (safe, use assms in \<open>auto\<close>)
 
 lemma Bx_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "(gen_basis_2 as) *\<^sub>v x = 
+  shows "(gen_basis_p as) *\<^sub>v x = 
     vec (dim_vec as + 1) (\<lambda> i. if i = 0 then (x \<bullet> as) 
     else (2 * x$(i-1)))"
     (is "?init_vec = ?goal_vec")
@@ -97,7 +97,7 @@ proof -
   have "vec n (\<lambda>j. (as $ j)) \<bullet>  x = (x \<bullet> as)"
     unfolding n_def scalar_prod_def using x_dim by (simp add: mult.commute)
   then show ?thesis 
-    unfolding gen_basis_2_def reduce_cvp_subset_sum_2_def gen_t_2_def
+    unfolding gen_basis_p_def reduce_cvp_subset_sum_p_def gen_t_p_def
   proof (intro eq_vecI, auto simp add: n_def, goal_cases)
     case (1 i)
     have "(\<Sum>ia = 0..<dim_vec x.
@@ -129,18 +129,18 @@ qed
 
 lemma Bx_s_rewrite: 
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "(gen_basis_2 as) *\<^sub>v x - (gen_t_2 as s) = 
+  shows "(gen_basis_p as) *\<^sub>v x - (gen_t_p as s) = 
     vec (dim_vec as + 1) (\<lambda> i. if i = 0 then  (x \<bullet> as - s) else  (2 * x$(i-1) - 1))"
     (is "?init_vec = ?goal_vec")
-unfolding gen_t_2_def by (subst  Bx_rewrite[OF assms], auto)
+unfolding gen_t_p_def by (subst  Bx_rewrite[OF assms], auto)
 
 
 lemma p_norm_vec_Bx_s:
   assumes x_dim: "dim_vec as = dim_vec x"
-  shows "p_norm_vec ((gen_basis_2 as) *\<^sub>v x - (gen_t_2 as s)) = 
+  shows "p_norm_vec ((gen_basis_p as) *\<^sub>v x - (gen_t_p as s)) = 
      \<bar>x \<bullet> as - s\<bar>^p + (\<Sum>i=1..<dim_vec as +1. \<bar>2*x$(i-1)-1\<bar>^p)"
 proof -
-  let ?init_vec = "(gen_basis_2 as) *\<^sub>v x - (gen_t_2 as s)"
+  let ?init_vec = "(gen_basis_p as) *\<^sub>v x - (gen_t_p as s)"
   let ?goal_vec = "vec (dim_vec as + 1) (\<lambda> i. if i = 0 then (x \<bullet> as - s)
        else  (2 * x$(i-1) - 1))"
   have "p_norm_vec ?init_vec = p_norm_vec ?goal_vec" using Bx_s_rewrite[OF x_dim] by auto
@@ -157,21 +157,21 @@ qed
 
 find_theorems sum name: split
 
-text \<open>gen_basis_2 actually generates a basis which is spans the int_lattice (by definition) and 
+text \<open>gen_basis_p actually generates a basis which is spans the int_lattice (by definition) and 
   is linearly independent.\<close>
 
 
-lemma is_indep_gen_basis_2:
-  "is_indep (gen_basis_2 as)"
+lemma is_indep_gen_basis_p:
+  "is_indep (real_of_int_mat (gen_basis_p as))"
 unfolding is_indep_def 
 proof (safe, goal_cases)
 case (1 z)
   let ?n = "dim_vec as"
-  have z_dim: "dim_vec z = ?n" using 1(2) unfolding gen_basis_2_def by auto
-  have dim_row: "dim_row (gen_basis_2 as) = ?n + 1" unfolding gen_basis_2_def by auto
-  have eq: "(real_of_int_mat (gen_basis_2 as)) *\<^sub>v z = vec (?n + 1) (\<lambda> i. if i = 0 
+  have z_dim: "dim_vec z = ?n" using 1(2) unfolding gen_basis_p_def by auto
+  have dim_row: "dim_row (gen_basis_p as) = ?n + 1" unfolding gen_basis_p_def by auto
+  have eq: "(real_of_int_mat (gen_basis_p as)) *\<^sub>v z = vec (?n + 1) (\<lambda> i. if i = 0 
     then z \<bullet> (real_of_int_vec as) else (2 * z$(i-1)))" 
-  (is "(real_of_int_mat (gen_basis_2 as)) *\<^sub>v z = ?goal_vec")
+  (is "(real_of_int_mat (gen_basis_p as)) *\<^sub>v z = ?goal_vec")
   proof -
     have scal_prod_com: "z \<bullet> real_of_int_vec as = real_of_int_vec as \<bullet> z"
       using comm_scalar_prod[of "real_of_int_vec as" ?n z] z_dim
@@ -213,14 +213,14 @@ case (1 z)
     have "?row i \<bullet> z = (if i = 0 then (z \<bullet> real_of_int_vec as) else 2 * z $ (i - 1))"
     if "i<?n+1" for i using that row_prod that by (subst scal_prod_com) auto
     then show ?thesis 
-      unfolding real_of_int_mat_def gen_basis_2_def mult_mat_vec_def by auto
+      unfolding real_of_int_mat_def gen_basis_p_def mult_mat_vec_def by auto
   qed
   have "\<dots> = 0\<^sub>v (?n + 1)" using 1(1) dim_row by (subst eq[symmetric], auto) 
   then have "2 * z$(i-1) = 0" if "0<i" and "i<?n +1" for i 
     using that by (smt (verit, best) cancel_comm_monoid_add_class.diff_cancel 
       empty_iff index_vec index_zero_vec(1) insert_iff not_less_zero zero_less_diff)
   then have "z$i = 0" if "i<?n" for i using that by force
-  then show ?case using 1 z_dim unfolding gen_basis_2_def by auto
+  then show ?case using 1 z_dim unfolding gen_basis_p_def by auto
 qed
 
 
@@ -234,30 +234,30 @@ text \<open>The Gap-CVP is NP-hard in l_infty.\<close>
 
 lemma well_defined_reduction: 
   assumes "(as, s) \<in> subset_sum"
-  shows "reduce_cvp_subset_sum_2 (as, s) \<in> gap_cvp"
+  shows "reduce_cvp_subset_sum_p (as, s) \<in> gap_cvp"
 proof -
   obtain x where
     x_dim: "dim_vec x = dim_vec as" and
     x_binary: "\<forall>i<dim_vec x. x $ i \<in> {0, 1}" and 
     x_lin_combo: "x \<bullet> as = s" 
     using assms unfolding subset_sum_def by blast
-  define L where L_def: "L = fst (reduce_cvp_subset_sum_2 (as, s))"
-  define b where b_def: "b = fst (snd (reduce_cvp_subset_sum_2 (as, s)))"
-  define r where r_def: "r = snd (snd (reduce_cvp_subset_sum_2 (as, s)))"
-  (*have "(L,b,r) = reduce_cvp_subset_sum_2 (as, s)" using L_def b_def r_def by auto*)
-  define B where "B = gen_basis_2 as"
+  define L where L_def: "L = fst (reduce_cvp_subset_sum_p (as, s))"
+  define b where b_def: "b = fst (snd (reduce_cvp_subset_sum_p (as, s)))"
+  define r where r_def: "r = snd (snd (reduce_cvp_subset_sum_p (as, s)))"
+  (*have "(L,b,r) = reduce_cvp_subset_sum_p (as, s)" using L_def b_def r_def by auto*)
+  define B where "B = gen_basis_p as"
   define n where n_def: "n = dim_vec as"
   have "r = root p n" unfolding n_def
-    by (simp add: r_def reduce_cvp_subset_sum_2_def)
+    by (simp add: r_def reduce_cvp_subset_sum_p_def)
   then have r_alt: "r^p = n" using p_def by auto
   have init_eq_goal: "B *\<^sub>v x - b = 
     vec (n+1) (\<lambda> i. if i = 0 then (x \<bullet> as - s) else (2 * x$(i-1) - 1))"
     (is "?init_vec = ?goal_vec")
-  unfolding B_def b_def reduce_cvp_subset_sum_2_def
+  unfolding B_def b_def reduce_cvp_subset_sum_p_def
   by (auto simp add: Bx_s_rewrite[OF x_dim[symmetric]] n_def)
   have "p_norm_vec (B *\<^sub>v x - b) = 
     \<bar>x \<bullet> as - s\<bar>^p + (\<Sum>i=1..<n+1. \<bar>2*x$(i-1)-1\<bar>^p)"
-  unfolding B_def b_def reduce_cvp_subset_sum_2_def 
+  unfolding B_def b_def reduce_cvp_subset_sum_p_def 
   by (auto simp add: p_norm_vec_Bx_s[OF x_dim[symmetric]] n_def)
   also have  "\<dots> \<le> r^p" (is "?left \<le> r^p")
   proof -
@@ -276,33 +276,34 @@ proof -
   finally have "p_norm_vec (?init_vec) \<le> r^p" by blast
   moreover have "B *\<^sub>v x\<in>L" 
   proof -
-    have "dim_vec x = dim_col (gen_basis_2 as)" unfolding gen_basis_2_def using x_dim by auto
+    have "dim_vec x = dim_col (gen_basis_p as)" unfolding gen_basis_p_def using x_dim by auto
     then show ?thesis
-      unfolding L_def reduce_cvp_subset_sum_2_def gen_lattice_def B_def by auto
+      unfolding L_def reduce_cvp_subset_sum_p_def gen_lattice_def B_def by auto
   qed
   ultimately have witness: "\<exists>v\<in>L. p_norm_vec (v - b) \<le> r^p" by auto
-  have is_indep: "is_indep B" unfolding B_def using is_indep_gen_basis_2[of as] by simp
-  have L_int_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_2_def 
+  have is_indep: "is_indep (real_of_int_mat B)" 
+    unfolding B_def using is_indep_gen_basis_p[of as] by simp
+  have L_int_lattice: "is_lattice L" unfolding L_def reduce_cvp_subset_sum_p_def 
     using is_lattice_gen_lattice[OF is_indep] unfolding B_def by auto
   show ?thesis unfolding gap_cvp_def using L_int_lattice witness L_def b_def r_def by force
 qed
 
 lemma NP_hardness_reduction:
-  assumes "reduce_cvp_subset_sum_2 (as, s) \<in> gap_cvp"
+  assumes "reduce_cvp_subset_sum_p (as, s) \<in> gap_cvp"
   shows "(as, s) \<in> subset_sum"
 proof -
   define n where "n = dim_vec as"
-  define B where "B = gen_basis_2 as"
+  define B where "B = gen_basis_p as"
   define L where "L = gen_lattice B"
-  define b where "b = gen_t_2 as s"
+  define b where "b = gen_t_p as s"
   define r where "r = root p n"
   have rp_eq_n: "r^p = n" unfolding r_def using p_def by (simp)
   have ex_v: "\<exists>v\<in>L. p_norm_vec (v - b) \<le> r^p" and is_int_lattice: "is_lattice L"
-    using assms unfolding gap_cvp_def reduce_cvp_subset_sum_2_def L_def B_def b_def r_def n_def 
+    using assms unfolding gap_cvp_def reduce_cvp_subset_sum_p_def L_def B_def b_def r_def n_def 
     by auto
   then obtain v where v_in_L:"v\<in>L" and ineq:"p_norm_vec (v - b) \<le> r^p" by blast
   have "\<exists>zs::int vec. v = B *\<^sub>v zs \<and> dim_vec zs = dim_vec as"
-  using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_2_def by auto
+  using v_in_L unfolding L_def gen_lattice_def B_def gen_basis_p_def by auto
   then obtain zs::"int vec" where v_def: "v = B *\<^sub>v  zs" 
     and zs_dim: "dim_vec zs = dim_vec as" by blast
   have init_eq_goal: "v - b = 
@@ -371,7 +372,7 @@ qed
 
 
 
-lemma "is_reduction reduce_cvp_subset_sum_2 subset_sum gap_cvp"
+lemma "is_reduction reduce_cvp_subset_sum_p subset_sum gap_cvp"
 unfolding is_reduction_def
 proof (safe, goal_cases)
   case (1 as s)

@@ -108,7 +108,7 @@ using gen_svp_basis_mult[OF assms] by auto
 
 lemma is_indep_gen_svp_basis: 
   assumes "k>0"
-  shows "is_indep (gen_svp_basis a k)"
+  shows "is_indep (real_of_int_mat (gen_svp_basis a k))"
 unfolding is_indep_def
 proof (safe, goal_cases)
 case (1 z)
