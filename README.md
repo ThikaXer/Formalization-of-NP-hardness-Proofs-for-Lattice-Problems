@@ -1,8 +1,6 @@
 # Formalization-of-NP-hardness-Proofs-for-Lattice-Problems
 Formalization of NP-hardness proofs of the shortest vector problem and the closest vector problem.
 
-WARNING: There are still some missing lemmas from linear algebra (in Lattice_int.thy)
-
 This repo contain the following formalizations:
 Formalization of basics:
 Additional_Lemmas.thy
