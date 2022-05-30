@@ -171,9 +171,8 @@ shows "col B i \<noteq> 0\<^sub>v (dim_row B)"
 proof (rule ccontr)
   assume "\<not> (col B i \<noteq> 0\<^sub>v (dim_row B))"
   then have "col B i = 0\<^sub>v (dim_row B)" by auto
-  then have "real_of_int_mat B *\<^sub>v (unit_vec (dim_col B) i) = 0\<^sub>v (dim_row B)" 
-  using col_unit_vec 
-  by (metis assms(2) col_map_mat index_map_mat(3) of_int_hom.vec_hom_zero real_of_int_mat_def)
+  then have "B *\<^sub>v (unit_vec (dim_col B) i) = 0\<^sub>v (dim_row B)" 
+  using col_unit_vec assms(2) by metis
   moreover have "dim_vec (unit_vec (dim_col B) i) = dim_col B" by auto
   moreover have "(unit_vec (dim_col B) i) \<noteq> 0\<^sub>v (dim_col B)" 
     by (simp add: assms(2))
@@ -195,8 +194,9 @@ definition span :: "('a :: semiring_0) mat \<Rightarrow> 'a vec set"  where
 "span B = {B *\<^sub>v z | z:: 'a vec. dim_vec z = dim_col B}"
 
 definition dim :: "int mat \<Rightarrow> nat" where 
-"dim B = (if \<exists>b. is_indep b \<and> span (real_of_int_mat b) = span (real_of_int_mat B) then
-    dim_col (SOME b. is_indep b \<and> span (real_of_int_mat b) = span (real_of_int_mat B)) else 0)"
+"dim B = (if \<exists>b. is_indep (real_of_int_mat b) \<and> span (real_of_int_mat b) = span (real_of_int_mat B) 
+    then dim_col (SOME b. is_indep (real_of_int_mat b) \<and> 
+    span (real_of_int_mat b) = span (real_of_int_mat B)) else 0)"
 
 definition set_cols[simp]: "set_cols A = set (cols A)"
 
@@ -252,31 +252,29 @@ shows "is_indep B"
 unfolding is_indep_def 
 proof (safe, goal_cases)
   case (1 z)
-  define A' where "A' = real_of_int_mat A"
-  define B' where "B' = real_of_int_mat B"
-  define nr where "nr = dim_row A'"
-  define nc where "nc = dim_col A'"
-  have r: "nr = dim_row B'" unfolding nr_def A'_def B'_def using assms(4) by auto
-  have A': "A' \<in> carrier_mat nr nc" unfolding nr_def nc_def by auto
-  define ss where "ss = cols (B')"
-  have d: "distinct (cols B')" using assms(3) unfolding B'_def 
+  define nr where "nr = dim_row A"
+  define nc where "nc = dim_col A"
+  have r: "nr = dim_row B" unfolding nr_def  using assms(4) by auto
+  have A': "A \<in> carrier_mat nr nc" unfolding nr_def nc_def by auto
+  define ss where "ss = cols (B)"
+  have d: "distinct (cols B)" using assms(3) 
   by (simp add: distinct_cols_real_of_int_mat) 
-  have sub: "set (cols B') \<subseteq> set (cols A')" unfolding A'_def B'_def
+  have sub: "set (cols B) \<subseteq> set (cols A)" 
   using assms(1) real_of_int_mat_cols by auto
-  from distinct_list_subset_nths[of "cols B'" "cols A'", OF d sub] 
-  obtain ids where ids: "distinct ids" "set ids \<subseteq> {..<length (cols A')}"
-    and ss: "ss = map ((!) (cols A')) ids"
+  from distinct_list_subset_nths[of "cols B" "cols A", OF d sub] 
+  obtain ids where ids: "distinct ids" "set ids \<subseteq> {..<length (cols A)}"
+    and ss: "ss = map ((!) (cols A)) ids"
     using assms(1) set_cols ss_def by blast
-  let ?ls = " map ((!) (cols A')) (filter (\<lambda>i. i \<notin> set ids) [0..<length (cols A')])"
+  let ?ls = " map ((!) (cols A)) (filter (\<lambda>i. i \<notin> set ids) [0..<length (cols A)])"
   from subindex_permutation2[OF ids] obtain f where
-    f: "f permutes {..<length (cols A')}"
-    "cols A' = permute_list f (?ls @ ss)" using ss by blast
+    f: "f permutes {..<length (cols A)}"
+    "cols A = permute_list f (?ls @ ss)" using ss by blast
   have f': "f permutes {..<nc}" using f(1) unfolding nc_def by simp
-  have *: "\<And>x. x \<in> set ?ls \<Longrightarrow> dim_vec x = nr" using A' by auto 
+  have *: "\<And>x. x \<in> set ?ls \<Longrightarrow> dim_vec x = nr" using nr_def by auto 
   let ?cs1 = "(list_of_vec (0\<^sub>v (length ?ls) @\<^sub>v z))"
   have z: "z \<in> carrier_vec (length ss)" unfolding ss_def using 1 
-  using B'_def carrier_dim_vec by auto
-  have "0\<^sub>v nr = B' *\<^sub>v z" using 1 unfolding B'_def r by auto
+  using carrier_dim_vec by auto
+  have "0\<^sub>v nr = B *\<^sub>v z" using 1 unfolding r by auto
   also have "\<dots> = mat_of_cols nr ss *\<^sub>v z" unfolding ss_def r by simp
   also have "\<dots> = mat_of_cols nr (?ls @ ss) *\<^sub>v vec_of_list (?cs1)"
     using helper2[OF z] * by (metis vec_list)
@@ -284,12 +282,12 @@ proof (safe, goal_cases)
     by (auto intro!: mat_of_cols_mult_mat_vec_permute_list[symmetric])
        (metis cols_length f(1) f(2) length_append length_map length_permute_list,
         use ss_def z in \<open>force\<close>)
-  also have "... =  A' *\<^sub>v vec_of_list (permute_list f ?cs1)" using f(2) 
+  also have "... =  A *\<^sub>v vec_of_list (permute_list f ?cs1)" using f(2) 
     by (simp add: nr_def)
-  finally have "A' *\<^sub>v vec_of_list (permute_list f ?cs1) = 0\<^sub>v nr" 
+  finally have "A *\<^sub>v vec_of_list (permute_list f ?cs1) = 0\<^sub>v nr" 
   by presburger
   then have zero: "vec_of_list (permute_list f ?cs1) = 0\<^sub>v nc" 
-  by (smt (verit, best) A'_def assms(2) carrier_vecD cols_length dim_vec_of_list f(2) 
+  by (smt (verit, best) assms(2) carrier_vecD cols_length dim_vec_of_list f(2) 
     index_append_vec(2) index_map_mat(2) index_map_mat(3) index_zero_vec(2) is_indep_def 
     length_append length_list_of_vec length_permute_list nc_def nr_def real_of_int_mat_def z)
   then have *:  "permute_list f ?cs1 ! i = 0" if "i<nc" for i
@@ -321,16 +319,17 @@ proof (rule ccontr)
   assume "\<not> distinct (cols A)"
   then obtain i j where ij: "i \<noteq> j" "i<nc" "j<nc" "col A i = col A j"
     unfolding nc_def by (metis cols_length cols_nth distinct_conv_nth)
-  have "(real_of_int_mat A) *\<^sub>v (unit_vec nc i - unit_vec nc j) = 0\<^sub>v nr"
+  have "A *\<^sub>v (unit_vec nc i - unit_vec nc j) = 0\<^sub>v nr"
     by (smt (verit, ccfv_threshold) ij carrier_mat_triv col_dim col_map_mat col_unit_vec 
       index_map_mat(2) index_map_mat(3) minus_cancel_vec mult_minus_distrib_mat_vec nc_def 
       nr_def real_of_int_mat_def unit_vec_carrier)
   moreover have "dim_vec (unit_vec nc i - unit_vec nc j) = nc" by simp
-  moreover have "(unit_vec nc i - unit_vec nc j) \<noteq> 0\<^sub>v nc" 
-  by (smt (z3) assms calculation(1) calculation(2) ij(1) ij(2) ij(3) index_minus_vec(1) 
-    index_minus_vec(2) index_unit_vec(1) index_zero_vec(1) is_indep_def nc_def nr_def)
-  ultimately have "\<not> is_indep A" unfolding is_indep_def
-  using nc_def nr_def by auto
+  moreover have "(unit_vec nc i - unit_vec nc j) \<noteq> 0\<^sub>v nc" using ij 
+  by (smt (z3) assms calculation(1) calculation(2) index_minus_vec(1) index_unit_vec(1) 
+    index_unit_vec(3) index_zero_vec(1) is_indep_def nc_def nr_def) 
+  ultimately have "\<not> is_indep A" unfolding is_indep_def using nc_def nr_def
+  by (smt (verit, ccfv_threshold) carrier_matI col_dim col_unit_vec minus_cancel_vec 
+    mult_minus_distrib_mat_vec unit_vec_carrier)
   then show False using assms by auto
 qed
 
@@ -350,7 +349,7 @@ qed
 text \<open>Representing function\<close>
 
 
-definition representation :: "int mat \<Rightarrow> int vec \<Rightarrow> int vec \<Rightarrow> int"
+definition representation :: "real mat \<Rightarrow> real vec \<Rightarrow> real vec \<Rightarrow> real"
   where "representation B v =
     (if is_indep B \<and> v \<in> (span B) then
       SOME f. (\<forall>v. f v \<noteq> 0 \<longrightarrow> v \<in> set_cols B) \<and>
@@ -384,15 +383,11 @@ proof (rule ext, rule ccontr)
       by (meson carrier_mat_triv mult_minus_distrib_mat_vec vec_carrier)
     qed
     then have "basis *\<^sub>v (?x) = 0\<^sub>v (dim_row basis)" using eq by auto
-    then have "real_of_int_mat basis *\<^sub>v (real_of_int_vec ?x) = 0\<^sub>v (dim_row basis)"
-      by (metis (full_types) carrier_mat_triv of_int_hom.mult_mat_vec_hom of_int_hom.vec_hom_zero 
-      real_of_int_mat_def real_of_int_vec_def vec_carrier)
     moreover have "dim_vec ?x = dim_col basis" 
     using dim_vec by blast
-    then have "dim_vec (real_of_int_vec ?x) = dim_col basis" by simp
     moreover have "?x \<noteq> 0\<^sub>v (dim_col basis)" using ex
     by (metis (no_types, lifting) index_vec index_zero_vec(1)) 
-    ultimately show "\<exists>x. (real_of_int_mat basis *\<^sub>v x = 0\<^sub>v (dim_row basis) \<and>
+    ultimately show "\<exists>x. (basis *\<^sub>v x = 0\<^sub>v (dim_row basis) \<and>
          dim_vec x = dim_col basis) \<and> x \<noteq> 0\<^sub>v (dim_vec x)" 
          using real_of_int_vec_def by auto
   qed
@@ -709,14 +704,14 @@ oops
 
 lemma spanning_subset_independent:
 assumes BA: "set_cols B \<subseteq> set_cols A" and iA: "is_indep A" 
-  and AsB:"set_cols (real_of_int_mat A) \<subseteq> span (real_of_int_mat B)" 
+  and AsB:"set_cols A \<subseteq> span B" 
   and d: "distinct (cols B)" and dr: "dim_row A = dim_row B"
 shows "set_cols A = set_cols B"
 proof (intro antisym[OF _ BA] subsetI)
   have iB: "is_indep B" using is_indep_mono[OF BA iA d dr] .
-  fix v assume "v \<in> set_cols (real_of_int_mat A)"
-  with AsB have "v \<in> span (real_of_int_mat B)" by auto
-  let ?RB = "representation (real_of_int_mat B) v" and ?RA = "representation (real_of_int_mat A) v"
+  fix v assume "v \<in> set_cols A"
+  with AsB have "v \<in> span B" by auto
+  let ?RB = "representation B v" and ?RA = "representation A v"
   have "?RB v = 1"
     unfolding representation_extend[OF iA \<open>v \<in> span B\<close> BA dr d, symmetric] 
       representation_basis[OF iA \<open>v \<in> set_cols A\<close>] by simp
@@ -1255,46 +1250,43 @@ qed
 
 lemma exchange_lemma:
   assumes i: "is_indep S"
-    and sp: "set_cols (real_of_int_mat S) \<subseteq> span (real_of_int_mat T)"
+    and sp: "set_cols S \<subseteq> span T"
     and d: "distinct (cols T)"
     and dr: "dim_row S = dim_row T"
-  shows "\<exists>t'. dim_col t' = dim_col (real_of_int_mat T) \<and> set_cols (real_of_int_mat S) \<subseteq> set_cols t' \<and> 
-              set_cols t' \<subseteq> set_cols (real_of_int_mat S) \<union> set_cols (real_of_int_mat T) \<and> 
+  shows "\<exists>t'. dim_col t' = dim_col T \<and> set_cols S \<subseteq> set_cols t' \<and> 
+              set_cols t' \<subseteq> set_cols S \<union> set_cols T \<and> 
               distinct (cols t')"
 (*need "distinct (cols t')*)
-using i sp d dr
+using i sp d dr 
 proof (induct "card (set_cols T - set_cols S)" arbitrary: S T rule: less_induct)
   case less
   define nr where "nr = dim_row S"
   have "nr = dim_row T" using less.prems(4) nr_def by blast
-  define S' where "S' = real_of_int_mat S"
-  define T' where "T' = real_of_int_mat T"
-  have "nr = dim_row S'"  by (simp add: S'_def nr_def)
-  have "nr = dim_row T'"  by (simp add: T'_def \<open>nr = dim_row T\<close>)
-  have sp': "set_cols (S') \<subseteq> span (T')" unfolding S'_def T'_def using less.prems(2)
+  have "nr = dim_row S"  by (simp add: nr_def)
+  have "nr = dim_row T"  by (simp add: \<open>nr = dim_row T\<close>)
+  have sp': "set_cols (S) \<subseteq> span (T)" using less.prems(2)
     unfolding set_cols_real_of_int_mat using real_of_int_mat_span by (auto)
-  have d': "distinct (cols (T'))" unfolding T'_def 
-  using distinct_cols_real_of_int_mat less.prems(3) by blast
-  have dr': "dim_row (S') = dim_row (T')" unfolding S'_def T'_def
-  by (simp add: less.prems(4))
-  have ft: "finite (set_cols T')" by auto
+  have d': "distinct (cols (T))" 
+    using distinct_cols_real_of_int_mat less.prems(3) by blast
+  have dr': "dim_row (S) = dim_row (T)" by (simp add: less.prems(4))
+  have ft: "finite (set_cols T)" by auto
   note S = \<open>is_indep S\<close>
-  let ?P = "\<lambda>t'. dim_col t' = dim_col T' \<and> set_cols S' \<subseteq> set_cols t' \<and> 
-              set_cols t' \<subseteq> set_cols S' \<union> set_cols T' \<and> distinct (cols t')"
+  let ?P = "\<lambda>t'. dim_col t' = dim_col T \<and> set_cols S \<subseteq> set_cols t' \<and> 
+              set_cols t' \<subseteq> set_cols S \<union> set_cols T \<and> distinct (cols t')"
   show ?case
   proof (cases "set_cols S \<subseteq> set_cols T  \<or> set_cols T \<subseteq> set_cols S")
     case True
     then show ?thesis
     proof
       assume "set_cols S \<subseteq> set_cols T"
-      then have "set_cols S' \<subseteq> set_cols T'" 
-      using S'_def T'_def set_cols_real_of_int_mat by auto
-      then show ?thesis using d' unfolding S'_def T'_def by blast
+      then have "set_cols S \<subseteq> set_cols T" 
+      using   set_cols_real_of_int_mat by auto
+      then show ?thesis using d' by blast
     next
-      assume s: "set_cols T \<subseteq> set_cols S" 
+      assume s: "set_cols T \<subseteq> set_cols S"
       then show ?thesis
       using spanning_subset_independent[OF s S _ less.prems(3) less.prems(4)]
-      using less.prems by (metis T'_def d' inf_sup_ord(3) order_refl set_cols_real_of_int_mat)
+      using less.prems by (metis d' inf_sup_ord(3))
     qed
   next
     case False
@@ -1303,57 +1295,44 @@ proof (induct "card (set_cols T - set_cols S)" arbitrary: S T rule: less_induct)
     from st(2) obtain b where b: "b \<in> set_cols T" "b \<notin> set_cols S"
       by blast
     have "nr = dim_vec b"
-    by (metis \<open>nr = dim_row T\<close> b(1) carrier_vecD cols_dim set_cols subset_eq)
-    define b' where "b' = real_of_int_vec b"
-    have "nr = dim_vec b'" by (simp add: \<open>nr = dim_vec b\<close> b'_def)
-    have b': "b' \<in> set_cols T'" "b' \<notin> set_cols S'" 
-    proof -
-      show "b' \<in> set_cols T'" using b
-      unfolding b'_def T'_def set_cols_real_of_int_mat by blast 
-      show "b' \<notin> set_cols S'" 
-      unfolding b'_def S'_def set_cols_real_of_int_mat
-      using b(2) of_int_hom.vec_hom_inj real_of_int_vec_def by fastforce
-    qed
+      by (metis \<open>nr = dim_row T\<close> b(1) carrier_vecD cols_dim set_cols subset_eq)
     from b have "set_cols T - {b} - (set_cols S) \<subset> set_cols T - set_cols S"
       by blast
     then have cardlt: "card (set_cols T - {b} - set_cols S) < card (set_cols T - set_cols S)"
       using ft by (auto intro: psubset_card_mono)
-    from b' ft have ct0: "card (set_cols T') \<noteq> 0"
+    from b ft have ct0: "card (set_cols T) \<noteq> 0"
       by auto
     let ?T_b = "delete_col T b"
-    let ?T_b' = "delete_col T' b'"
-    have "nr = dim_row ?T_b'"  by (simp add: \<open>nr = dim_row T'\<close> dim_row_delete_col)
-    have T_b': "?T_b' = real_of_int_mat (delete_col T b)" 
-      unfolding T'_def b'_def using real_of_int_mat_delete_col .
-    from ft have ftb: "finite (set_cols ?T_b')"
+    have "nr = dim_row ?T_b" by (simp add: \<open>nr = dim_row T\<close> dim_row_delete_col)
+    from ft have ftb: "finite (set_cols ?T_b)"
       by auto
-    have dim_col_T_gr_0: "dim_col T' > 0" using b'(1) 
+    have dim_col_T_gr_0: "dim_col T > 0" using b(1) 
     by (metis atLeastLessThan_iff bot_nat_0.not_eq_extremum cols_def imageE list.set_map 
       set_cols set_upt zero_order(3))
-    have dim_col_T_b: "dim_col ?T_b' = dim_col T' - 1" 
+    have dim_col_T_b: "dim_col ?T_b = dim_col T - 1" 
     proof -
-      have "length (cols T') > 0" using dim_col_T_gr_0 unfolding cols_length by auto
-      have "length (filter (\<lambda>x. x = b') (cols T')) = 1" 
+      have "length (cols T) > 0" using dim_col_T_gr_0 unfolding cols_length by auto
+      have "length (filter (\<lambda>x. x = b) (cols T)) = 1" 
       proof -
-        have "length (filter (\<lambda>x. x = b') (cols T')) = 
-          card {i. i < dim_col T' \<and> col T' i = b'}"
+        have "length (filter (\<lambda>x. x = b) (cols T)) = 
+          card {i. i < dim_col T \<and> col T i = b}"
           unfolding length_filter_conv_card using cols_nth by (metis cols_length) 
-        then show ?thesis using d' \<open>b' \<in> set_cols T'\<close>
+        then show ?thesis using d' \<open>b \<in> set_cols T\<close>
         by (smt (verit, del_insts) Collect_cong List.finite_set One_nat_def card.empty 
           card.insert distinct_card distinct_filter equals0D list.set(1) set_cols set_filter 
           singleton_conv)
       qed
-      then have "length (filter (\<lambda>x. x \<noteq> b') (cols T')) = length (cols T') - 1" 
+      then have "length (filter (\<lambda>x. x \<noteq> b) (cols T)) = length (cols T) - 1" 
          using sum_length_filter_compl by (metis add_diff_cancel_left') 
       then show ?thesis unfolding delete_col by auto
     qed
-    have "dim_vec b' = dim_row T'" 
-      using b'(1) carrier_dim_vec cols_dim set_cols by blast
-    have set_cols_T_b: "set_cols ?T_b' = set_cols T' - {b'}"
+    have "dim_vec b = dim_row T" 
+      using b(1) carrier_dim_vec cols_dim set_cols by blast
+    have set_cols_T_b: "set_cols ?T_b = set_cols T - {b}"
     proof -
-      have "set_cols ?T_b' \<subseteq> set_cols T'" 
+      have "set_cols ?T_b \<subseteq> set_cols T" 
       by (smt (verit) cols_dim cols_mat_of_cols delete_col filter_is_subset order_trans set_cols)
-      moreover have "b' \<notin> set_cols ?T_b'" using \<open>dim_vec b' = dim_row T'\<close>
+      moreover have "b \<notin> set_cols ?T_b" using \<open>dim_vec b = dim_row T\<close>
         by (subst delet_col_not_in_set_cols, auto)
       ultimately show ?thesis 
       by (smt (verit, del_insts) Diff_subset cols_dim cols_mat_of_cols delete_col dual_order.trans 
@@ -1361,98 +1340,90 @@ proof (induct "card (set_cols T - set_cols S)" arbitrary: S T rule: less_induct)
     qed
     show ?thesis
 (*pay attention to span over reals not only int! changes may be needed*)
-    proof (cases "set_cols (S) \<subseteq> span (?T_b)")
+    proof (cases "set_cols S \<subseteq> span ?T_b")
       case True
-      (* have "set_cols T'- set_cols S' \<subseteq> real_of_int_vec ` (set_cols T - set_cols S)"
-        unfolding S'_def T'_def set_cols_real_of_int_mat using image_diff_subset by auto
-      then have *: "card (set_cols T' - set_cols S') \<le> card (set_cols T - set_cols S)"
+      (* have "set_cols T- set_cols S \<subseteq> real_of_int_vec ` (set_cols T - set_cols S)"
+        unfolding   set_cols_real_of_int_mat using image_diff_subset by auto
+      then have *: "card (set_cols T - set_cols S) \<le> card (set_cols T - set_cols S)"
       by (simp add: surj_card_le)*)
-      from cardlt have cardlt': "card (set_cols (?T_b) - set_cols S) < 
+      from cardlt have cardlt': "card (set_cols ?T_b - set_cols S) < 
         card (set_cols T - set_cols S)" 
-        using set_cols_T_b
-        by (smt (verit, ccfv_threshold) b(1) cols_dim cols_mat_of_cols delete_col insert_Diff 
-          insert_subset set_cols set_minus_filter_out) (* * by presburger*)
-      have d_delete: "distinct (cols (delete_col T b))" using d
-      by (metis T_b' cols_dim cols_mat_of_cols d' delete_col dim_row_delete_col 
-        distinct_cols_real_of_int_mat distinct_filter set_cols set_cols_T_b set_minus_filter_out)
+        using set_cols_T_b by presburger
+      have d_delete: "distinct (cols (delete_col T b))" using d 
+      by (metis b(1) card_Diff_singleton card_distinct cols_length d' dim_col_T_b dim_col_distinct 
+        set_cols set_cols_T_b)
       have dim_row_STb: "dim_row S = dim_row (delete_col T b)"
         by (simp add: dim_row_delete_col less.prems(4))
-      obtain U where U: "dim_col U = dim_col ?T_b'" "set_cols S' \<subseteq> set_cols U" 
-        "set_cols U \<subseteq> set_cols S' \<union> set_cols (?T_b')" "distinct (cols U)" 
-      using less(1)[OF cardlt' S True d_delete dim_row_STb] unfolding S'_def T_b' by auto
-      have "nr = dim_row U" using U(2) unfolding \<open>nr = dim_row S'\<close>
-      by (smt (verit, best) S'_def carrier_vecD cols_dim image_subset_iff set_cols 
-        set_cols_real_of_int_mat st(1) subsetD subsetI)
-      let ?w = "insert_col U b'"
+      obtain U where U: "dim_col U = dim_col ?T_b" "set_cols S \<subseteq> set_cols U" 
+        "set_cols U \<subseteq> set_cols S \<union> set_cols ?T_b" "distinct (cols U)" 
+        using less(1)[OF cardlt' S True d_delete dim_row_STb]  by auto
+      have "nr = dim_row U" using U(2) unfolding \<open>nr = dim_row S\<close>
+        by (smt (verit, best)  carrier_vecD cols_dim image_subset_iff set_cols 
+          set_cols_real_of_int_mat st(1) subsetD subsetI)
+      let ?w = "insert_col U b"
       have dim_col_w: "dim_col ?w = dim_col U + 1" unfolding insert_col by simp
-      have "dim_vec b' = dim_row U" unfolding \<open>nr = dim_vec b'\<close>[symmetric] 
+      have "dim_vec b = dim_row U" unfolding \<open>nr = dim_vec b\<close>[symmetric] 
         using \<open>nr = dim_row U\<close> .
-      then have set_cols_w: "set_cols ?w = set_cols U \<union> {b'}" 
+      then have set_cols_w: "set_cols ?w = set_cols U \<union> {b}" 
         by (subst set_cols_insert_col, auto) 
-      have th0: "set_cols S' \<subseteq> set_cols ?w"
+      have th0: "set_cols S \<subseteq> set_cols ?w"
         using U(2) set_cols_w by auto
-      have th1: "set_cols ?w \<subseteq> set_cols S' \<union> set_cols T'"
-        using U b' set_cols_w set_cols_T_b by auto
-      have bu: "b' \<notin> set_cols U"
-        using b' U 
+      have th1: "set_cols ?w \<subseteq> set_cols S \<union> set_cols T"
+        using U b set_cols_w set_cols_T_b by auto
+      have bu: "b \<notin> set_cols U"
+        using b U 
         by (metis DiffD2 Un_iff insertCI set_cols_T_b sup.orderE)
-      from U(1) have "dim_col U = dim_col T' - 1"
+      from U(1) have "dim_col U = dim_col T - 1"
       using dim_col_T_b by presburger
-      then have th2: "dim_col (?w) = dim_col T'" unfolding dim_col_w 
+      then have th2: "dim_col (?w) = dim_col T" unfolding dim_col_w 
       using dim_col_T_gr_0 by linarith
       have th3: "distinct (cols ?w)"
       proof -
-        have "b' \<notin> set_cols U" using bu by blast 
+        have "b \<notin> set_cols U" using bu by blast 
         then show ?thesis 
-        by (metis List.finite_set Suc_pred' U(4) \<open>dim_col U = dim_col T' - 1\<close> card_distinct 
+        by (metis List.finite_set Suc_pred' U(4) \<open>dim_col U = dim_col T - 1\<close> card_distinct 
           card_insert_disjoint cols_length dim_col_T_gr_0 dim_col_distinct insert_union set_cols 
           set_cols_w th2)
       qed
-      from th0 th1 th2 th3  have th: "?P ?w" by blast
-      from th show ?thesis unfolding T'_def S'_def by blast
+      from th0 th1 th2 th3 have th: "?P ?w" by blast
+      from th show ?thesis by blast
     next
       case False
-      then obtain a where a: "a \<in> set_cols S" "a \<notin> span (?T_b)"
-        by blast
-      define a' where "a' = real_of_int_vec a"
-      have ab: "a \<noteq> b"
-        using a b by blast
-      have at: "a \<notin> set_cols T" using a ab span_base[of a "?T_b"] sorry
+      then obtain a where a: "a \<in> set_cols S" "a \<notin> span ?T_b" by blast
+      have ab: "a \<noteq> b" using a b by blast
+      have at: "a \<notin> set_cols T" using a ab span_base[of a "?T_b"] 
         by (metis DiffI empty_iff insert_iff set_cols_T_b)
       let ?insert_a =  "insert_col ?T_b a"
-      let ?insert_a' =  "insert_col ?T_b' a'"
-      have set_cols_insert: "set_cols ?insert_a = {a} \<union> set_cols ?T_b" sorry
-      by (smt (verit, ccfv_SIG) Lattice_int.span_def Un_commute a(1) delete_col dim_mult_mat_vec 
-        less.prems(2) mat_of_cols_carrier(2) mem_Collect_eq set_cols_insert_col subsetD)
-      have dim_col_insert_a: "dim_col (?insert_a) = dim_col T" sorry
-      by (metis One_nat_def Suc_eq_plus1_left Suc_pred' add.commute cols_length dim_col_T_b 
-        dim_col_T_gr_0 insert_col list.size(4) mat_of_cols_carrier(3))
+      have set_cols_insert: "set_cols ?insert_a = {a} \<union> set_cols ?T_b" 
+        by (smt (verit, ccfv_SIG) Lattice_int.span_def Un_commute a(1) delete_col dim_mult_mat_vec 
+          less.prems(2) mat_of_cols_carrier(2) mem_Collect_eq set_cols_insert_col subsetD)
+      have dim_col_insert_a: "dim_col (?insert_a) = dim_col T" 
+        by (metis One_nat_def Suc_eq_plus1_left Suc_pred' add.commute cols_length dim_col_T_b 
+          dim_col_T_gr_0 insert_col list.size(4) mat_of_cols_carrier(3))
       have mlt: "card (set_cols ?insert_a - set_cols S) < card (set_cols T - set_cols S)"
-        using cardlt a b sorry
-        by (metis insert_Diff1 insert_is_Un set_cols_T_b set_cols_insert)
-      have sp': "set_cols S' \<subseteq> span (?insert_a')"
+        using cardlt a b by (metis insert_Diff1 insert_is_Un set_cols_T_b set_cols_insert)
+      have sp': "set_cols S \<subseteq> span (?insert_a)"
       proof
         fix x
-        assume xs: "x \<in> set_cols S'"
-        let ?insert_b =  "mat_of_cols (dim_row T') (b' # cols ?insert_a')"
-        have T: "set_cols T' \<subseteq> set_cols ?insert_b"
-          using b' sorry
+        assume xs: "x \<in> set_cols S"
+        let ?insert_b =  "mat_of_cols (dim_row T) (b # cols ?insert_a)"
+        have T: "set_cols T \<subseteq> set_cols ?insert_b"
+          using b 
           by (smt (verit, ccfv_SIG) cols_dim cols_mat_of_cols delete_col dual_order.refl 
             insert_Diff insert_col insert_is_Un insert_subset list.set(2) mat_of_cols_carrier(2) 
             set_cols set_cols_T_b set_cols_insert)
-        have bs: "b' \<in> span (?insert_a')" 
-          using in_span_delete_field sorry
-        (* by (meson in_span_delete a(1) a(2) in_mono less.prems(2))*)
-        from xs sp have "x \<in> span T'" using less.prems(2) by blast
+        have bs: "b \<in> span (?insert_a)" 
+          using in_span_delete_field 
+          by (metis \<open>dim_vec b = dim_row T\<close> a(1) a(2) d' in_mono sp')
+        from xs sp have "x \<in> span T" using less.prems(2) by blast
         with span_mono[OF T] have x: "x \<in> span (?insert_b)" 
         using less.prems(3) by auto 
-        from span_trans show "x \<in> span (?insert_a')" 
+        from span_trans show "x \<in> span (?insert_a)" 
         by (metis bs delete_col insert_col mat_of_cols_carrier(2) x)
       qed
-thm less(1)[OF mlt S]
-      from less(1) (*[OF mlt S sp']*) obtain U where U:
-        "dim_col U = dim_col (insert_col (?T_b') a')"
-        "set_cols S' \<subseteq> set_cols U" "set_cols U \<subseteq> set_cols S' \<union> set_cols (insert_col (?T_b') a')"
+      from less(1)[OF mlt S sp'] obtain U where U:
+        "dim_col U = dim_col (insert_col (?T_b) a)"
+        "set_cols S \<subseteq> set_cols U" "set_cols U \<subseteq> set_cols S \<union> set_cols (insert_col (?T_b) a)"
         "distinct (cols U)" 
         by (metis Lattice_int.span_base \<open>dim_vec b = dim_row T\<close> a(2) b(1) card_distinct 
           card_insert_disjoint cols_length delet_col_not_in_set_cols delete_col dim_col_distinct 
@@ -1460,7 +1431,7 @@ thm less(1)[OF mlt S]
           mat_of_cols_carrier(2) set_cols set_cols_T_b set_cols_insert)
       from U a b ft at ct0 have "?P U" 
       using dim_col_insert_a set_cols_T_b set_cols_insert by auto
-      then show ?thesis sorry by blast
+      then show ?thesis by blast
     qed
   qed
 qed
@@ -1475,11 +1446,15 @@ lemma independent_span_bound:
 proof -
   have sp': "set_cols (real_of_int_mat S) \<subseteq> Lattice_int.span (real_of_int_mat T)"
     using sp by (metis image_mono real_of_int_mat_span set_cols_real_of_int_mat subset_trans)
+  have d': "distinct (cols (real_of_int_mat T))" using d 
+    by (simp add: distinct_cols_real_of_int_mat)
+  have dr': "dim_row (real_of_int_mat S) = dim_row (real_of_int_mat T)" using dr 
+    by (simp add: distinct_cols_real_of_int_mat)
   obtain t' where t: "dim_col t' = dim_col (real_of_int_mat T)"
        "set_cols (real_of_int_mat S) \<subseteq> set_cols t'"
        "set_cols t' \<subseteq> set_cols (real_of_int_mat S) \<union> set_cols (real_of_int_mat T)" 
        "distinct (cols t')"
-  using exchange_lemma[OF i sp' d dr] by blast
+  using exchange_lemma[OF i sp' d' dr'] by blast
   have dS: "distinct (cols (real_of_int_mat S))" using is_indep_distinct[OF i]
     using distinct_cols_real_of_int_mat by blast
   have "dim_col S = dim_col (real_of_int_mat S)" by simp
@@ -1506,10 +1481,10 @@ proof -
   by (smt (z3) dim_mult_mat_vec gen_eq gen_lattice_def index_zero_vec(2) mem_Collect_eq)
   have "dim_col B \<le> dim_col B'" 
     using assms(2) is_indep_distinct[OF assms(3)] gen_lattice_in_span[OF assms(1)] dr
-    by (subst independent_span_bound, auto)
+     Lattice_int.independent_span_bound distinct_cols_real_of_int_mat by presburger
   moreover have "dim_col B' \<le> dim_col B" 
     using assms(3) is_indep_distinct[OF assms(2)] gen_lattice_in_span[OF assms(1)[symmetric]] dr
-    by (subst independent_span_bound, auto)
+     Lattice_int.independent_span_bound distinct_cols_real_of_int_mat by presburger
   ultimately show ?thesis by linarith
 qed
 
