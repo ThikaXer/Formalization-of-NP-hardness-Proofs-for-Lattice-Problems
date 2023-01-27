@@ -18,3 +18,6 @@ This repository contains the following formalizations:
 - CVP_p.thy: Formalization of statement of CVP and reduction Subset Sum => CVP in p-norm for p>=1 and p finite
 - BHLE.thy: Formalization of statement of BHLE Problem and reduction proof Partition => BHLE in maximum norm
 - SVP_vec.thy: Formalization of statement of SVP and reduction proof BHLE => SVP in maximum norm
+
+To run these files, you need a running version of Isabelle (https://isabelle.in.tum.de/ Version 2021 or newer).
+Clone the directory and open the theory files (*.thy) with Isabelle.
